@@ -2763,6 +2763,11 @@ class CleanCApp(tk.Tk):
         if hasattr(self, "version_tree"):
             self._render_version_tree()
             self._update_version_status_only()
+        if hasattr(self, "panther_tree"):
+            self.refresh_panther_info()
+        if hasattr(self, "dev_cache_tree"):
+            self._render_dev_cache_tree()
+            self._update_dev_cache_selection_status()
 
     def _translate_visible_ui(self, english: bool) -> None:
         """Translate all currently rendered widget labels and table headings."""
