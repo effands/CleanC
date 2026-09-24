@@ -567,13 +567,14 @@ class ModernMetricCard(tk.Frame):
         top_row = tk.Frame(self, bg=COLOR_BG_CARD)
         top_row.pack(fill="x")
 
-        tk.Label(
+        self.lbl_title = tk.Label(
             top_row,
             text=f"{icon} {title}",
             font=("Segoe UI", 9, "bold"),
             fg=COLOR_TEXT_MUTED,
             bg=COLOR_BG_CARD,
-        ).pack(side="left")
+        )
+        self.lbl_title.pack(side="left")
 
         self.lbl_value = tk.Label(
             self,
@@ -597,6 +598,9 @@ class ModernMetricCard(tk.Frame):
         self.lbl_value.configure(text=value)
         if subtitle is not None:
             self.lbl_sub.configure(text=subtitle)
+
+    def update_title(self, title: str) -> None:
+        self.lbl_title.configure(text=title)
 
 
 # ----------------------------------------------------------------------
@@ -3882,6 +3886,9 @@ class CleanCApp(tk.Tk):
         checked_items = [it for it in self.dev_cache_items if it.checked]
         checked_size = sum(it.size for it in checked_items)
         total_size = sum(it.size for it in self.dev_cache_items)
+        self.card_dev_selected.update_title(
+            "🧹 SELECTED TO CLEAN" if self.language == "en" else "🧹 TERCENTANG SIAP BERSIH"
+        )
 
         self.card_dev_total.update_data(
             format_size(total_size),
