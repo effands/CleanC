@@ -2579,15 +2579,8 @@ class CleanCApp(tk.Tk):
 
         self._panther_prev_size = getattr(self, "_panther_total_bytes", 0)
         include_all = self.panther_include_all.get()
-        confirm = messagebox.askyesno(
-            "Konfirmasi Pembersihan Panther",
-            "Apakah Anda yakin ingin membersihkan log di C:\\Windows\\Panther\\monitor?\n\n"
-            "Sistem akan menghentikan driver monitor, menghapus file log lama, dan mengaktifkannya kembali.\n"
-            "Jika muncul dialog izin Windows (UAC), silakan pilih 'Yes'.",
-        )
-        if not confirm:
-            return
-
+        # Start the worker immediately; only Windows' security UAC prompt may
+        # appear, while the app itself remains responsive in the background.
         self.is_panther_cleaning = True
         self.btn_panther_clean.configure(state="disabled")
         self.panther_radar.start()
