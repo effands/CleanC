@@ -2287,13 +2287,14 @@ class CleanCApp(tk.Tk):
             command=self.deselect_all_old_versions,
         ).pack(side="left", padx=(0, 10))
 
-        tk.Label(
+        self.capcut_version_hint_label = tk.Label(
             toolbar,
             text="💡 Versi terbaru terkunci & terlindungi otomatis.",
             fg=COLOR_TEXT_DIM,
             bg=COLOR_BG_CARD,
             font=("Segoe UI", 8),
-        ).pack(side="left", padx=(0, 8))
+        )
+        self.capcut_version_hint_label.pack(side="left", padx=(0, 8))
 
         ttk.Button(
             toolbar,
@@ -2697,6 +2698,22 @@ class CleanCApp(tk.Tk):
         if hasattr(self, "btn_delete_all"):
             self.btn_delete_all.configure(text="🗑️ Delete All Filtered" if english else "🗑️ Hapus Semua Sesuai Filter")
         self._translate_visible_ui(english)
+        if hasattr(self, "btn_delete_checked_versions"):
+            self.btn_delete_checked_versions.configure(
+                text="🗑️ Delete Checked Old Versions" if english else "🗑️ Hapus Versi Lama Tercentang"
+            )
+        if hasattr(self, "btn_clean_all_versions"):
+            self.btn_clean_all_versions.configure(
+                text="⚡ Clean All Old Versions (One Click)" if english else "⚡ Bersihkan Semua Versi Lama (1-Klik)"
+            )
+        if hasattr(self, "capcut_version_hint_label"):
+            self.capcut_version_hint_label.configure(
+                text="💡 The latest version is locked and protected automatically."
+                if english else "💡 Versi terbaru terkunci & terlindungi otomatis."
+            )
+        if hasattr(self, "version_tree"):
+            self._render_version_tree()
+            self._update_version_status_only()
 
     def _translate_visible_ui(self, english: bool) -> None:
         """Translate all currently rendered widget labels and table headings."""
@@ -3360,12 +3377,18 @@ class CleanCApp(tk.Tk):
         raw_versions = v_info.get("versions", [])
         self.capcut_versions = [CapCutVersionItem(v) for v in raw_versions]
 
-        latest_name = v_info.get("latest_version") or "Tidak ditemukan"
+        latest_name = v_info.get("latest_version") or ("Not found" if self.language == "en" else "Tidak ditemukan")
         old_size_str = format_size(v_info.get("old_versions_size", 0))
         old_count = sum(1 for v in self.capcut_versions if not v.is_latest)
 
-        self.card_ver_latest.update_data(latest_name, "🔒 Dilindungi & Terkunci")
-        self.card_ver_savable.update_data(old_size_str, f"{old_count} versi lama dapat dihapus")
+        self.card_ver_latest.update_data(
+            latest_name,
+            "🔒 Protected & Locked" if self.language == "en" else "🔒 Dilindungi & Terkunci",
+        )
+        self.card_ver_savable.update_data(
+            old_size_str,
+            f"{old_count} old versions can be deleted" if self.language == "en" else f"{old_count} versi lama dapat dihapus",
+        )
 
         self._render_version_tree()
         self._update_version_status_only()
@@ -3378,15 +3401,15 @@ class CleanCApp(tk.Tk):
         for idx, it in enumerate(self.capcut_versions):
             if it.is_latest:
                 chk_sym = "🔒"
-                stat_sym = "🔒 TERBARU (DILINDUNGI)"
+                stat_sym = "🔒 LATEST (PROTECTED)" if self.language == "en" else "🔒 TERBARU (DILINDUNGI)"
                 tag = "latest"
             elif it.checked:
                 chk_sym = "[ ✓ ]"
-                stat_sym = "🗑️ Akan Dihapus"
+                stat_sym = "🗑️ Will Be Deleted" if self.language == "en" else "🗑️ Akan Dihapus"
                 tag = "checked"
             else:
                 chk_sym = "[   ]"
-                stat_sym = "Versi Lama (Bisa Dihapus)"
+                stat_sym = "Old Version (Can Be Deleted)" if self.language == "en" else "Versi Lama (Bisa Dihapus)"
                 tag = "unchecked"
 
             self.version_tree.insert(
@@ -3417,16 +3440,22 @@ class CleanCApp(tk.Tk):
         if checked_items:
             self.btn_delete_checked_versions.configure(state="normal")
             self.capcut_version_status_var.set(
-                f"Tercentang: {len(checked_items)} versi lama ({format_size(checked_size)}). Siap dihapus."
+                    f"Selected: {len(checked_items)} old versions ({format_size(checked_size)}). Ready to clean."
+                    if self.language == "en" else
+                    f"Tercentang: {len(checked_items)} versi lama ({format_size(checked_size)}). Siap dihapus."
             )
         else:
             self.btn_delete_checked_versions.configure(state="disabled")
             if old_count == 0:
                 self.capcut_version_status_var.set(
+                    "Only the latest version is installed. There are no old versions to delete."
+                    if self.language == "en" else
                     "Hanya terpasang 1 versi terbaru. Tidak ada versi lama untuk dihapus."
                 )
             else:
                 self.capcut_version_status_var.set(
+                    f"Found {old_count} old versions. Check the versions you want to delete."
+                    if self.language == "en" else
                     f"Ditemukan {old_count} versi lama. Centang versi yang ingin dihapus."
                 )
 
