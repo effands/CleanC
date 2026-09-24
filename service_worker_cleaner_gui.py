@@ -122,6 +122,34 @@ SCOPE_CAPCUT_PROJECTS = "Hanya Projects (User Data\\Projects)"
 # UI-wide language replacements.  The application is intentionally kept in
 # one file, so a recursive refresh keeps every existing screen in sync.
 UI_EN_REPLACEMENTS = [
+    ("Kapasitas Drive C:", "C: Drive Capacity"), ("Sisa Free:", "Free Space:"),
+    ("dari Total", "of Total"), ("Tersedia", "Available"), ("Terpakai", "Used"),
+    ("Total Telah Dibersihkan:", "Total Cleaned:"), ("Sesi ini:", "This session:"),
+    ("Profil", "Profile"), ("Profil Terdeteksi", "Profiles Detected"),
+    ("Profile Terdeteksi", "Profiles Detected"),
+    ("Google Chrome User Data", "Google Chrome User Data"), ("folder target", "target folders"),
+    ("Semua (Service Worker & Cache)", "All (Service Worker & Cache)"),
+    ("Hanya Service Worker", "Service Worker Only"), ("Hanya Cache", "Cache Only"),
+    ("Pilih target dan klik Scan untuk mencari folder yang dapat dibersihkan.", "Select a target and click Scan to find cleanable folders."),
+    ("Menampilkan", "Showing"), ("dari total", "of total"), ("ditemukan", "found"),
+    ("Tercentang", "Selected"), ("Siap dibersihkan", "Ready to clean"),
+    ("Target Cakupan:", "Scope:"), ("Versi Lama", "Old Versions"),
+    ("Nomor Versi", "Version"), ("Status Proteksi", "Protection Status"),
+    ("Ukuran Disk", "Disk Size"), ("Tanggal Modifikasi", "Modified Date"),
+    ("Centang Semua Versi Lama", "Check All Old Versions"), ("Hapus Centang", "Uncheck All"),
+    ("Versi terbaru terkunci & terlindungi otomatis.", "Latest version is locked and protected automatically."),
+    ("Scan Ulang Versi", "Rescan Versions"), ("Hapus Versi Lama Tercentang", "Delete Checked Old Versions"),
+    ("Bersihkan Semua Versi Lama (1-Klik)", "Clean All Old Versions (One Click)"),
+    ("Windows Panther Monitor Logs", "Windows Panther Monitor Logs"),
+    ("Status Izin:", "Permission Status:"), ("Memeriksa...", "Checking..."),
+    ("Menghitung...", "Calculating..."), ("Total file:", "Total files:"),
+    ("Bersihkan juga file .log tambahan di root folder Panther", "Also clean extra .log files in the Panther root folder"),
+    ("Bersihkan Log Panther Sekarang", "Clean Panther Logs Now"), ("Refresh", "Refresh"),
+    ("Administrator (Aman)", "Administrator (Safe)"), ("Pengguna Biasa (Memerlukan UAC)", "Standard User (UAC Required)"),
+    ("Status Browser:", "Browser Status:"), ("Status CapCut:", "CapCut Status:"),
+    ("Versi Terbaru:", "Latest Version:"), ("Dapat Dihemat:", "Can Save:"),
+    ("Memindai", "Scanning"), ("Pembersihan selesai", "Cleaning complete"),
+    ("sedang berjalan", "is running"), ("Disarankan ditutup sebelum menghapus", "Recommended to close before cleaning"),
     ("Pilih Rekomendasi", "Select Recommended"), ("Pilih Semua", "Select All"),
     ("Batal Pilih", "Deselect All"), ("Centang Semua", "Check All"),
     ("Uncheck All", "Uncheck All"), ("Scan Ulang", "Rescan"),
@@ -1712,9 +1740,9 @@ class CleanCApp(tk.Tk):
         profiles_found = set()
         for item in self.all_items:
             profiles_found.add(item.profile)
-            if selected_filter in (FILTER_SW, "Service Worker only") and item.category != "Service Worker":
+            if selected_filter in (FILTER_SW, "Service Worker only", "Service Worker Only") and item.category != "Service Worker":
                 continue
-            if selected_filter in (FILTER_CACHE, "Cache only") and item.category != "Cache":
+            if selected_filter in (FILTER_CACHE, "Cache only", "Cache Only") and item.category != "Cache":
                 continue
             if query and query not in item.profile.lower() and query not in str(item.path).lower():
                 continue
@@ -2522,6 +2550,9 @@ class CleanCApp(tk.Tk):
                     for column in widget["columns"]:
                         heading = widget.heading(column, "text")
                         widget.heading(column, text=translate(heading))
+                elif isinstance(widget, ttk.Combobox):
+                    values = list(widget.cget("values"))
+                    widget.configure(values=tuple(translate(str(value)) for value in values))
                 if "text" in widget.keys():
                     current = widget.cget("text")
                     if current:
