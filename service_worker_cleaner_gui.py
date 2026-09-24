@@ -213,6 +213,18 @@ UI_EN_REPLACEMENTS = [
     ("Rekomendasi & Status", "Recommendation & Status"), ("Pilih", "Select"),
     ("Kategori / Tool", "Category / Tool"), ("Nama Folder / Versi", "Folder / Version"),
     ("Lokasi Folder", "Folder Location"), ("Bersihkan Log Panther", "Clean Panther Logs"),
+    ("Konfirmasi Pembersihan Dev Cache", "Confirm Dev Cache Cleanup"),
+    ("Konfirmasi Pembersihan Panther", "Confirm Panther Cleanup"),
+    ("Konfirmasi Hapus", "Confirm Deletion"),
+    ("Konfirmasi Hapus Semua", "Confirm Delete All"),
+    ("Apakah Anda yakin ingin membersihkan", "Are you sure you want to clean"),
+    ("Apakah Anda yakin ingin menutup proses", "Are you sure you want to close the"),
+    ("Apakah Anda ingin menutup", "Do you want to close"),
+    ("Apakah Anda benar-benar yakin", "Are you absolutely sure"),
+    ("folder terpilih", "selected folders"),
+    ("Folder yang tidak dicentang akan tetap aman tersimpan.", "Unchecked folders will remain safely stored."),
+    ("Sistem akan menghentikan driver monitor, menghapus file log lama, dan mengaktifkannya kembali.", "The system will stop the monitor driver, remove old log files, and restart it."),
+    ("Jika muncul dialog izin Windows (UAC), silakan pilih 'Yes'.", "If a Windows permission dialog (UAC) appears, choose 'Yes'."),
     ("Web Browsers", "Web Browsers"), ("Windows Panther", "Windows Panther"),
     ("Dev & Package Cache", "Dev & Package Cache"), ("CapCut Studio", "CapCut Studio"),
     ("Terbuka", "Running"), ("tidak berjalan", "not running"), ("sedang berjalan", "is running"),
@@ -220,6 +232,9 @@ UI_EN_REPLACEMENTS = [
     ("Menampilkan", "Showing"), ("dari total", "of total"),
     ("file", "files"), ("ditemukan", "found"), ("Terpilih", "Selected"),
 ]
+
+_DIALOG_OWNER = None
+_DIALOG_ORIGINALS = {}
 
 
 # ----------------------------------------------------------------------
@@ -764,6 +779,7 @@ class CleanCApp(tk.Tk):
         self._configure_styles()
         self._build_ui()
         self._install_language_traces()
+        self._install_dialog_translation()
         self._refresh_language_labels()
 
         # Initial Background Scans
@@ -2633,6 +2649,25 @@ class CleanCApp(tk.Tk):
 
     def _ui_text(self, indonesian: str, english: str) -> str:
         return english if self.language == "en" else indonesian
+
+    def _install_dialog_translation(self) -> None:
+        """Translate every native Tk message box at the point it opens."""
+        global _DIALOG_OWNER
+        _DIALOG_OWNER = self
+        if _DIALOG_ORIGINALS:
+            return
+        for name in ("showinfo", "showwarning", "showerror", "askyesno"):
+            original = getattr(messagebox, name)
+            _DIALOG_ORIGINALS[name] = original
+
+            def translated(title, message, *args, _name=name, **kwargs):
+                owner = _DIALOG_OWNER
+                if owner is not None and owner.language == "en":
+                    title = owner._translate_text(str(title))
+                    message = owner._translate_text(str(message))
+                return _DIALOG_ORIGINALS[_name](title, message, *args, **kwargs)
+
+            setattr(messagebox, name, translated)
 
     def _install_language_traces(self) -> None:
         self._language_trace_guard = False
