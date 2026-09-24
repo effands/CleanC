@@ -855,6 +855,10 @@ class CleanCApp(tk.Tk):
         self.option_add("*TCombobox*Listbox.borderWidth", "1")
         self.option_add("*TCombobox*Listbox.highlightThickness", "1")
         self.option_add("*TCombobox*Listbox.highlightColor", "#3b82f6")
+        # Remove Tk's dotted keyboard-focus rectangle from native checkboxes.
+        self.option_add("*Checkbutton*highlightThickness", 0)
+        self.option_add("*Checkbutton*borderWidth", 0)
+        self.option_add("*Checkbutton*relief", "flat")
 
         # --------------------------------------------------------------
         # 3. MODERN MENU TABS (Cyber Dashboard Tabs)
@@ -2380,6 +2384,10 @@ class CleanCApp(tk.Tk):
             selectcolor=COLOR_BG_CARD,
             activebackground=COLOR_BG_SURFACE,
             activeforeground=COLOR_TEXT_WHITE,
+            relief="flat",
+            bd=0,
+            highlightthickness=0,
+            takefocus=0,
         ).pack(side="left")
 
         self.btn_panther_clean = ttk.Button(
