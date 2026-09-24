@@ -881,6 +881,21 @@ class CleanCApp(tk.Tk):
         style.layout("TCombobox", strip_ttk_focus(style.layout("TCombobox")))
         style.layout("TNotebook.Tab", strip_ttk_focus(style.layout("TNotebook.Tab")))
         style.layout("Sub.TNotebook.Tab", strip_ttk_focus(style.layout("Sub.TNotebook.Tab")))
+        style.layout("Clean.TCheckbutton", strip_ttk_focus(style.layout("TCheckbutton")))
+        style.configure(
+            "Clean.TCheckbutton",
+            background=COLOR_BG_SURFACE,
+            foreground=COLOR_TEXT_WHITE,
+            font=("Segoe UI", 9),
+            focuscolor="",
+            borderwidth=0,
+            relief="flat",
+        )
+        style.map(
+            "Clean.TCheckbutton",
+            background=[("active", COLOR_BG_SURFACE), ("pressed", COLOR_BG_SURFACE)],
+            foreground=[("disabled", COLOR_TEXT_DIM), ("active", COLOR_TEXT_WHITE)],
+        )
 
         # Tkinter popup menu options for Combobox dropdown
         self.option_add("*TCombobox*Listbox.background", "#0f172a")
@@ -2418,19 +2433,11 @@ class CleanCApp(tk.Tk):
         act_row = tk.Frame(parent, bg=COLOR_BG_SURFACE)
         act_row.pack(fill="x", pady=(0, 8))
 
-        tk.Checkbutton(
+        ttk.Checkbutton(
             act_row,
             text="Bersihkan juga file .log tambahan di root folder Panther",
             variable=self.panther_include_all,
-            font=("Segoe UI", 9),
-            fg=COLOR_TEXT_WHITE,
-            bg=COLOR_BG_SURFACE,
-            selectcolor=COLOR_BG_CARD,
-            activebackground=COLOR_BG_SURFACE,
-            activeforeground=COLOR_TEXT_WHITE,
-            relief="flat",
-            bd=0,
-            highlightthickness=0,
+            style="Clean.TCheckbutton",
             takefocus=0,
         ).pack(side="left")
 
