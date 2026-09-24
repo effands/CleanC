@@ -862,6 +862,26 @@ class CleanCApp(tk.Tk):
             arrowcolor=[("active", "#ffffff")],
         )
 
+        # Windows' Vista ttk theme draws a dotted focus rectangle even when
+        # the widget is not keyboard-focusable. Remove only the theme focus
+        # elements; keep the actual border, arrow, and tab selection styling.
+        def strip_ttk_focus(nodes):
+            cleaned = []
+            for element, options in nodes:
+                children = options.get("children", [])
+                if element.endswith(".focus"):
+                    cleaned.extend(strip_ttk_focus(children))
+                    continue
+                updated = dict(options)
+                if children:
+                    updated["children"] = strip_ttk_focus(children)
+                cleaned.append((element, updated))
+            return cleaned
+
+        style.layout("TCombobox", strip_ttk_focus(style.layout("TCombobox")))
+        style.layout("TNotebook.Tab", strip_ttk_focus(style.layout("TNotebook.Tab")))
+        style.layout("Sub.TNotebook.Tab", strip_ttk_focus(style.layout("Sub.TNotebook.Tab")))
+
         # Tkinter popup menu options for Combobox dropdown
         self.option_add("*TCombobox*Listbox.background", "#0f172a")
         self.option_add("*TCombobox*Listbox.foreground", "#f8fafc")
