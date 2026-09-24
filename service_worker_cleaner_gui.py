@@ -1879,20 +1879,32 @@ class CleanCApp(tk.Tk):
         # Update Metric Cards
         b_key = self._get_current_browser_key()
         b_label = self._browser_label(b_key)
-        self.card_chrome_total.update_data(format_size(total_size), f"{len(self.displayed_items)} folder target")
-        self.card_chrome_profiles.update_data(f"{len(profiles_found)} Profil", f"{b_label} User Data")
+        self.card_chrome_total.update_data(
+            format_size(total_size),
+            f"{len(self.displayed_items)} target folders" if self.language == "en"
+            else f"{len(self.displayed_items)} folder target",
+        )
+        self.card_chrome_profiles.update_data(
+            f"{len(profiles_found)} Profiles" if self.language == "en" else f"{len(profiles_found)} Profil",
+            f"{b_label} User Data",
+        )
 
         has_items = len(self.displayed_items) > 0
         self.btn_delete_all.configure(state="normal" if has_items else "disabled")
         self.btn_delete_selected.configure(state="disabled")
 
         if not self.all_items:
-            self.chrome_status_var.set("Tidak ditemukan folder target yang cocok.")
-        else:
             self.chrome_status_var.set(
-                f"Menampilkan {len(self.displayed_items)} folder ({format_size(total_size)}) "
-                f"dari total {len(self.all_items)} ditemukan."
+                "No matching target folders found." if self.language == "en"
+                else "Tidak ditemukan folder target yang cocok."
             )
+        else:
+            self.chrome_status_var.set(self._ui_text(
+                f"Menampilkan {len(self.displayed_items)} folder ({format_size(total_size)}) "
+                f"dari total {len(self.all_items)} ditemukan.",
+                f"Showing {len(self.displayed_items)} folders ({format_size(total_size)}) "
+                f"of {len(self.all_items)} found.",
+            ))
 
     def sort_browser(self, column: str) -> None:
         if self.browser_sort_column == column:
@@ -2548,12 +2560,12 @@ class CleanCApp(tk.Tk):
         admin = is_admin()
         if admin:
             self.lbl_panther_admin.configure(
-                text="Status Izin: Administrator (Aman)",
+                text="Permission Status: Administrator (Safe)" if self.language == "en" else "Status Izin: Administrator (Aman)",
                 fg=COLOR_GREEN_HOVER,
             )
         else:
             self.lbl_panther_admin.configure(
-                text="Status Izin: Pengguna Biasa (Memerlukan UAC)",
+                text="Permission Status: Standard User (UAC Required)" if self.language == "en" else "Status Izin: Pengguna Biasa (Memerlukan UAC)",
                 fg=COLOR_AMBER,
             )
 
@@ -2562,16 +2574,21 @@ class CleanCApp(tk.Tk):
         mon_str = format_size(info["monitor_size"])
         tot_str = format_size(info["total_size"])
         self.lbl_monitor_size.configure(
-            text=f"Ukuran C:\\Windows\\Panther\\monitor: {mon_str}"
+            text=(f"Size C:\\Windows\\Panther\\monitor: {mon_str}" if self.language == "en"
+                  else f"Ukuran C:\\Windows\\Panther\\monitor: {mon_str}")
         )
         self.lbl_panther_total.configure(
-            text=f"Total file terdeteksi: {len(info['files'])} file (Total: {tot_str})"
+            text=(f"Total files detected: {len(info['files'])} files (Total: {tot_str})" if self.language == "en"
+                  else f"Total file terdeteksi: {len(info['files'])} file (Total: {tot_str})")
         )
 
         self.panther_tree.delete(*self.panther_tree.get_children())
         for fn, sz, is_mon in info["files"]:
             tag = "★ Monitor Log" if is_mon else "Setup/Diag Log"
             self.panther_tree.insert("", "end", values=(tag, fn, format_size(sz)))
+        self.panther_tree.heading("tag", text="Type" if self.language == "en" else "Tipe")
+        self.panther_tree.heading("filename", text="Log File Name" if self.language == "en" else "Nama File Log")
+        self.panther_tree.heading("size", text="Size" if self.language == "en" else "Ukuran")
 
     def start_panther_clean(self) -> None:
         if self.is_panther_cleaning:
@@ -2585,7 +2602,10 @@ class CleanCApp(tk.Tk):
         self.btn_panther_clean.configure(state="disabled")
         self.panther_radar.start()
         self.panther_dot.set_state("working")
-        self.panther_status_var.set("Sedang membersihkan log Panther... Mohon tunggu.")
+        self.panther_status_var.set(self._ui_text(
+            "Sedang membersihkan log Panther... Mohon tunggu.",
+            "Cleaning Panther logs... Please wait.",
+        ))
 
         threading.Thread(
             target=self._panther_clean_worker, args=(include_all,), daemon=True
@@ -3841,9 +3861,9 @@ class CleanCApp(tk.Tk):
                     chk_sym,
                     it.category,
                     it.name,
-                    it.recommendation,
+                    self._translate_text(it.recommendation) if self.language == "en" else it.recommendation,
                     it.size_str,
-                    f"{it.files:,} file",
+                    f"{it.files:,} files" if self.language == "en" else f"{it.files:,} file",
                     str(it.path),
                 ),
                 tags=(tag,),
@@ -3860,22 +3880,26 @@ class CleanCApp(tk.Tk):
 
         self.card_dev_total.update_data(
             format_size(total_size),
-            f"{len(self.dev_cache_items)} folder terdeteksi"
+            f"{len(self.dev_cache_items)} folders detected" if self.language == "en"
+            else f"{len(self.dev_cache_items)} folder terdeteksi"
         )
         self.card_dev_selected.update_data(
             format_size(checked_size),
-            f"{len(checked_items)} dari {len(self.dev_cache_items)} folder dipilih"
+            f"{len(checked_items)} of {len(self.dev_cache_items)} folders selected" if self.language == "en"
+            else f"{len(checked_items)} dari {len(self.dev_cache_items)} folder dipilih"
         )
 
         if checked_items:
             self.btn_clean_dev_cache.configure(state="normal")
             self.dev_cache_status_var.set(
-                f"Tercentang: {len(checked_items)} folder ({format_size(checked_size)}). Siap dibersihkan."
+                f"Selected: {len(checked_items)} folders ({format_size(checked_size)}). Ready to clean." if self.language == "en"
+                else f"Tercentang: {len(checked_items)} folder ({format_size(checked_size)}). Siap dibersihkan."
             )
         else:
             self.btn_clean_dev_cache.configure(state="disabled")
             self.dev_cache_status_var.set(
-                "Tidak ada folder tercentang. Centang folder yang ingin Anda bersihkan."
+                "No folders selected. Check the folders you want to clean." if self.language == "en"
+                else "Tidak ada folder tercentang. Centang folder yang ingin Anda bersihkan."
             )
 
     def _on_dev_cache_click(self, event) -> None:
