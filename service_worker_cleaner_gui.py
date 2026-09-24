@@ -217,7 +217,7 @@ UI_EN_REPLACEMENTS = [
     ("Dev & Package Cache", "Dev & Package Cache"), ("CapCut Studio", "CapCut Studio"),
     ("Terbuka", "Running"), ("tidak berjalan", "not running"), ("sedang berjalan", "is running"),
     ("Aman untuk dibersihkan", "Safe to clean"), ("Disarankan ditutup sebelum menghapus", "Recommended to close before cleaning"),
-    ("Menampilkan", "Showing"), ("dari total", "of total"), ("folder", "folders"),
+    ("Menampilkan", "Showing"), ("dari total", "of total"),
     ("file", "files"), ("ditemukan", "found"), ("Terpilih", "Selected"),
 ]
 
