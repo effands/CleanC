@@ -719,11 +719,15 @@ class CleanCApp(tk.Tk):
         self.is_panther_cleaning = False
 
         # State Variables: CapCut Cache/Projects
-        self.capcut_scope_var = tk.StringVar(value=SCOPE_CAPCUT_ALL)
+        self.capcut_scope_var = tk.StringVar(
+            value="All (Cache & Projects)" if self.language == "en" else SCOPE_CAPCUT_ALL
+        )
         self.capcut_path_var = tk.StringVar(value=str(DEFAULT_CAPCUT_CACHE))
         self.capcut_projects_path_var = tk.StringVar(value=str(DEFAULT_CAPCUT_PROJECTS))
         self.capcut_search_var = tk.StringVar(value="")
-        self.capcut_filter_type_var = tk.StringVar(value="Semua Item")
+        self.capcut_filter_type_var = tk.StringVar(
+            value="All Items" if self.language == "en" else "Semua Item"
+        )
         self.capcut_all_items: list[CapCutItem] = []
         self.capcut_displayed_items: list[CapCutItem] = []
         self.capcut_sort_column = "no"
@@ -2691,6 +2695,20 @@ class CleanCApp(tk.Tk):
                 ["All (Service Worker & Cache)", "Service Worker only", "Cache only"]
                 if english else [FILTER_ALL, FILTER_SW, FILTER_CACHE]
             ))
+        if hasattr(self, "capcut_scope_combo"):
+            self.capcut_scope_combo.configure(values=(
+                ["All (Cache & Projects)", "Cache Only (User Data\\Cache)", "Projects Only (User Data\\Projects)"]
+                if english else [SCOPE_CAPCUT_ALL, SCOPE_CAPCUT_CACHE, SCOPE_CAPCUT_PROJECTS]
+            ))
+            self.capcut_scope_var.set(
+                "All (Cache & Projects)" if english else SCOPE_CAPCUT_ALL
+            )
+        if hasattr(self, "capcut_type_combo"):
+            self.capcut_type_combo.configure(values=(
+                ["All Items", "Folders / Drafts Only", "Files Only"]
+                if english else ["Semua Item", "Hanya Folder / Draft", "Hanya File"]
+            ))
+            self.capcut_filter_type_var.set("All Items" if english else "Semua Item")
         if hasattr(self, "scan_button"):
             self.scan_button.configure(text="🔍 Scan Now" if english else "🔍 Scan Sekarang")
         if hasattr(self, "btn_close_browser"):
@@ -3049,12 +3067,12 @@ class CleanCApp(tk.Tk):
     def _capcut_scan_worker(self, scope: str, cache_dir: Path, projects_dir: Path) -> None:
         try:
             combined_items: list[CapCutItem] = []
-            if scope in (SCOPE_CAPCUT_ALL, SCOPE_CAPCUT_CACHE):
+            if scope in (SCOPE_CAPCUT_ALL, "All (Cache & Projects)", SCOPE_CAPCUT_CACHE, "Cache Only (User Data\\Cache)"):
                 c_info = get_capcut_cache_info(cache_dir)
                 for it in c_info.get("items", []):
                     combined_items.append(CapCutItem(it))
 
-            if scope in (SCOPE_CAPCUT_ALL, SCOPE_CAPCUT_PROJECTS):
+            if scope in (SCOPE_CAPCUT_ALL, "All (Cache & Projects)", SCOPE_CAPCUT_PROJECTS, "Projects Only (User Data\\Projects)"):
                 p_info = get_capcut_projects_info(projects_dir)
                 for it in p_info.get("items", []):
                     combined_items.append(CapCutItem(it))
@@ -3093,9 +3111,9 @@ class CleanCApp(tk.Tk):
             else:
                 projects_bytes += item.size
 
-            if type_filter == "Hanya Folder / Draft" and not item.is_dir:
+            if type_filter in ("Hanya Folder / Draft", "Folders / Drafts Only") and not item.is_dir:
                 continue
-            if type_filter == "Hanya File" and item.is_dir:
+            if type_filter in ("Hanya File", "Files Only") and item.is_dir:
                 continue
             if query and query not in item.name.lower() and query not in str(item.path).lower():
                 continue
