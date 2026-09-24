@@ -887,7 +887,6 @@ class CleanCApp(tk.Tk):
             tabmargins=[0, 0, 0, 0],
             relief="flat",
             focuscolor="",
-            focuscolor="",
         )
         style.configure(
             "TNotebook.Tab",
