@@ -1,6 +1,6 @@
 # CleanC
 
-![CleanC](CleanC.png)
+![CleanC application preview](app-preview.png)
 
 **CleanC** is a focused Windows storage cleaner for browser caches, Service Worker data, CapCut leftovers, developer caches, and selected Windows logs.
 
@@ -51,3 +51,4 @@ CleanC targets disposable cache and log data. Browser history, bookmarks, passwo
 ## License
 
 This project is provided for personal and educational use. Review the target list before confirming a cleanup operation.
+

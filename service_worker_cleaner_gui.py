@@ -585,6 +585,7 @@ class CleanCApp(tk.Tk):
         self.drive_c_detail_var = tk.StringVar(value="Total: Memeriksa...")
         self.total_cleaned_var = tk.StringVar(value=format_size(self.lifetime_freed_bytes))
         self.session_cleaned_var = tk.StringVar(value="Sesi ini: 0 B dibebaskan")
+        self.language = "id"
 
         # State Variables: Web Browsers (Chrome, Brave, Edge, Firefox)
         self.all_items: list[TargetItem] = []
@@ -1085,6 +1086,16 @@ class CleanCApp(tk.Tk):
         brand_right.pack(side="right", pady=4)
 
         # About Button
+        self.btn_language = tk.Button(
+            brand_right,
+            text="EN",
+            font=("Segoe UI", 8, "bold"),
+            bg="#24324a", fg=COLOR_CYAN_LIGHT, relief="flat",
+            activebackground="#334155", activeforeground="#ffffff",
+            command=self.toggle_language, padx=9, pady=3, cursor="hand2",
+        )
+        self.btn_language.pack(side="right", padx=(0, 6))
+
         self.btn_about = tk.Button(
             brand_right,
             text="ℹ️ About",
@@ -2399,9 +2410,17 @@ class CleanCApp(tk.Tk):
     # ------------------------------------------------------------------
     # ABOUT & DONATE QRIS POPUPS
     # ------------------------------------------------------------------
+    def toggle_language(self) -> None:
+        """Switch the UI language; Indonesian is the default."""
+        self.language = "en" if self.language == "id" else "id"
+        self.btn_language.configure(text="ID" if self.language == "en" else "EN")
+        self.btn_about.configure(text="ℹ️ About" if self.language == "en" else "ℹ️ Tentang")
+        self.btn_donate.configure(text="💖 Donate QRIS" if self.language == "en" else "💖 Donasi QRIS")
+
     def show_about_popup(self) -> None:
         top = tk.Toplevel(self)
-        top.title("About CleanC")
+        english = self.language == "en"
+        top.title("About CleanC" if english else "Tentang CleanC")
         top.configure(bg=COLOR_BG_ROOT)
         top.resizable(False, False)
         top.transient(self)
@@ -2417,7 +2436,7 @@ class CleanCApp(tk.Tk):
         # Top decorative cyan accent strip
         tk.Frame(top, bg=COLOR_CYAN, height=4).pack(fill="x")
 
-        card = tk.Frame(top, bg=COLOR_BG_CARD, padx=24, pady=16)
+        card = tk.Frame(top, bg=COLOR_BG_CARD, padx=28, pady=22, highlightbackground="#385173", highlightthickness=1)
         card.pack(fill="both", expand=True, padx=16, pady=14)
 
         # Header Title
@@ -2431,7 +2450,7 @@ class CleanCApp(tk.Tk):
 
         tk.Label(
             card,
-            text="Advanced System, Browser & App Storage Optimizer",
+            text="Advanced System, Browser & App Storage Optimizer" if english else "Pembersih Sistem, Browser & Penyimpanan Aplikasi",
             font=("Segoe UI", 9),
             fg=COLOR_TEXT_DIM,
             bg=COLOR_BG_CARD,
@@ -2442,7 +2461,7 @@ class CleanCApp(tk.Tk):
         ver_frame.pack(anchor="center", pady=(0, 10))
         tk.Label(
             ver_frame,
-            text="Versi 2.5 PRO • 64-bit Edition",
+            text="Version 2.5 PRO • 64-bit Edition" if english else "Versi 2.5 PRO • Edisi 64-bit",
             font=("Segoe UI", 8, "bold"),
             fg="#ffffff",
             bg="#1e3a8a",
@@ -2454,7 +2473,8 @@ class CleanCApp(tk.Tk):
 
         tk.Label(
             desc_frame,
-            text="CleanC dirancang khusus untuk membebaskan ruang hard disk Anda secara maksimal dengan membersihkan file sampah tersembunyi, cache browser Chromium, build artifacts developer, serta project cache & versi lawas CapCut secara aman dan cerdas.",
+            text=("CleanC is designed to recover disk space by safely cleaning hidden junk, Chromium browser caches, developer build artifacts, and CapCut cache and legacy versions."
+                  if english else "CleanC dirancang untuk membebaskan ruang disk dengan membersihkan file sampah tersembunyi, cache browser Chromium, artefak developer, serta cache dan versi lama CapCut secara aman."),
             font=("Segoe UI", 9),
             fg=COLOR_TEXT_MUTED,
             bg="#0b0f19",
@@ -2468,7 +2488,7 @@ class CleanCApp(tk.Tk):
 
         tk.Label(
             dev_frame,
-            text="Dikembangkan oleh: Ziqva",
+            text="Developed by: Ziqva" if english else "Dikembangkan oleh: Ziqva",
             font=("Segoe UI", 10, "bold"),
             fg=COLOR_TEXT_WHITE,
             bg=COLOR_BG_CARD,
@@ -2477,7 +2497,7 @@ class CleanCApp(tk.Tk):
         # More Tools Website Button
         btn_web = tk.Button(
             card,
-            text="🌐 More Tools di appcenter.ziqva.com",
+            text="🌐 More tools at appcenter.ziqva.com" if english else "🌐 Tools lainnya di appcenter.ziqva.com",
             font=("Segoe UI", 10, "bold"),
             bg="#2563eb",
             fg="#ffffff",
@@ -2494,7 +2514,7 @@ class CleanCApp(tk.Tk):
         # Donate QRIS Button
         btn_don = tk.Button(
             card,
-            text="💖 Dukung Pengembang (Donasi QRIS)",
+            text="💖 Support the developer (QRIS)" if english else "💖 Dukung Pengembang (Donasi QRIS)",
             font=("Segoe UI", 9, "bold"),
             bg="#e11d48",
             fg="#ffffff",
@@ -2511,7 +2531,7 @@ class CleanCApp(tk.Tk):
         # Close Button
         tk.Button(
             card,
-            text="Tutup",
+            text="Close" if english else "Tutup",
             font=("Segoe UI", 9),
             bg="#1e293b",
             fg=COLOR_TEXT_MUTED,
@@ -2540,7 +2560,8 @@ class CleanCApp(tk.Tk):
 
     def show_donate_popup(self) -> None:
         top = tk.Toplevel(self)
-        top.title("Donasi QRIS - ZIQVA")
+        english = self.language == "en"
+        top.title("QRIS Donation - ZIQVA" if english else "Donasi QRIS - ZIQVA")
         top.configure(bg=COLOR_BG_ROOT)
         top.resizable(False, False)
         top.transient(self)
@@ -2554,14 +2575,14 @@ class CleanCApp(tk.Tk):
                 pass
 
         # Top decorative pink/rose strip
-        tk.Frame(top, bg="#f43f5e", height=4).pack(fill="x")
+        tk.Frame(top, bg="#f43f5e", height=5).pack(fill="x")
 
         header = tk.Frame(top, bg=COLOR_BG_ROOT, pady=12)
         header.pack(fill="x")
 
         tk.Label(
             header,
-            text="💖 Dukung Pengembang CleanC",
+            text="💖 Support the CleanC developer" if english else "💖 Dukung Pengembang CleanC",
             font=("Segoe UI", 14, "bold"),
             fg="#f43f5e",
             bg=COLOR_BG_ROOT,
@@ -2569,14 +2590,15 @@ class CleanCApp(tk.Tk):
 
         tk.Label(
             header,
-            text="Scan QRIS via BCA, Mandiri, BRI, GoPay, OVO, DANA, ShopeePay",
+            text=("Scan QRIS with BCA, Mandiri, BRI, GoPay, OVO, DANA, or ShopeePay"
+                  if english else "Scan QRIS melalui BCA, Mandiri, BRI, GoPay, OVO, DANA, atau ShopeePay"),
             font=("Segoe UI", 8),
             fg=COLOR_TEXT_DIM,
             bg=COLOR_BG_ROOT,
         ).pack(anchor="center", pady=(3, 0))
 
         # White Card Container for QR Code (optimal scanning contrast)
-        qr_card = tk.Frame(top, bg="#ffffff", padx=16, pady=14, relief="flat")
+        qr_card = tk.Frame(top, bg="#ffffff", padx=18, pady=16, relief="flat", highlightbackground="#f43f5e", highlightthickness=2)
         qr_card.pack(padx=24, pady=(4, 18))
 
         # Load QRIS Image
