@@ -119,6 +119,40 @@ SCOPE_CAPCUT_ALL = "Semua (Cache & Projects)"
 SCOPE_CAPCUT_CACHE = "Hanya Cache (User Data\\Cache)"
 SCOPE_CAPCUT_PROJECTS = "Hanya Projects (User Data\\Projects)"
 
+# UI-wide language replacements.  The application is intentionally kept in
+# one file, so a recursive refresh keeps every existing screen in sync.
+UI_EN_REPLACEMENTS = [
+    ("Pilih Rekomendasi", "Select Recommended"), ("Pilih Semua", "Select All"),
+    ("Batal Pilih", "Deselect All"), ("Centang Semua", "Check All"),
+    ("Uncheck All", "Uncheck All"), ("Scan Ulang", "Rescan"),
+    ("Bersihkan Item Tercentang", "Clean Checked Items"),
+    ("Bersihkan Sekarang", "Clean Now"), ("Scan Sekarang", "Scan Now"),
+    ("Hapus Terpilih", "Delete Selected"), ("Hapus Semua Sesuai Filter", "Delete All Filtered"),
+    ("Hapus Semua Sesuai Target", "Delete All in Scope"), ("Pilih Browser:", "Browser:"),
+    ("Target Cakupan:", "Scope:"), ("Cari Profil:", "Search Profile:"),
+    ("Cari Nama:", "Search Name:"), ("Filter:", "Filter:"), ("Tipe:", "Type:"),
+    ("Path:", "Path:"), ("Browse...", "Browse..."), ("Tutup Browser", "Close Browser"),
+    ("Profil Terdeteksi", "Profiles Detected"), ("Kategori", "Category"),
+    ("Ukuran", "Size"), ("Lokasi Direktori", "Directory Location"),
+    ("Nama Folder / File", "Folder / File Name"), ("Jumlah File", "File Count"),
+    ("Path Direktori", "Directory Path"), ("Lokasi Folder", "Folder Location"),
+    ("Service Worker & Cache", "Service Worker & Cache"), ("Semua Item", "All Items"),
+    ("Hanya Folder / Draft", "Folders / Drafts Only"), ("Hanya File", "Files Only"),
+    ("Cache & Projects (User Data)", "Cache & Projects (User Data)"),
+    ("Versi Lama CapCut (Apps)", "Old CapCut Versions (Apps)"),
+    ("Cache CapCut", "CapCut Cache"), ("Draft Projects", "Draft Projects"),
+    ("Total Dev Cache", "Total Dev Cache"), ("Tercentang Siap Bersih", "Selected to Clean"),
+    ("Rekomendasi & Status", "Recommendation & Status"), ("Pilih", "Select"),
+    ("Kategori / Tool", "Category / Tool"), ("Nama Folder / Versi", "Folder / Version"),
+    ("Lokasi Folder", "Folder Location"), ("Bersihkan Log Panther", "Clean Panther Logs"),
+    ("Web Browsers", "Web Browsers"), ("Windows Panther", "Windows Panther"),
+    ("Dev & Package Cache", "Dev & Package Cache"), ("CapCut Studio", "CapCut Studio"),
+    ("Terbuka", "Running"), ("tidak berjalan", "not running"), ("sedang berjalan", "is running"),
+    ("Aman untuk dibersihkan", "Safe to clean"), ("Disarankan ditutup sebelum menghapus", "Recommended to close before cleaning"),
+    ("Menampilkan", "Showing"), ("dari total", "of total"), ("folder", "folders"),
+    ("file", "files"), ("ditemukan", "found"), ("Terpilih", "Selected"),
+]
+
 
 # ----------------------------------------------------------------------
 # DATA MODELS
@@ -2466,6 +2500,47 @@ class CleanCApp(tk.Tk):
             self.btn_delete_selected.configure(text="🗑️ Delete Selected" if english else "🗑️ Hapus Terpilih")
         if hasattr(self, "btn_delete_all"):
             self.btn_delete_all.configure(text="🗑️ Delete All Filtered" if english else "🗑️ Hapus Semua Sesuai Filter")
+        self._translate_visible_ui(english)
+
+    def _translate_visible_ui(self, english: bool) -> None:
+        """Translate all currently rendered widget labels and table headings."""
+        pairs = UI_EN_REPLACEMENTS if english else [(en, id_text) for id_text, en in UI_EN_REPLACEMENTS]
+
+        def translate(value: str) -> str:
+            result = value
+            for source, target in pairs:
+                result = result.replace(source, target)
+            return result
+
+        def visit(widget) -> None:
+            try:
+                if isinstance(widget, ttk.Notebook):
+                    for tab_id in widget.tabs():
+                        label = widget.tab(tab_id, "text")
+                        widget.tab(tab_id, text=translate(label))
+                elif isinstance(widget, ttk.Treeview):
+                    for column in widget["columns"]:
+                        heading = widget.heading(column, "text")
+                        widget.heading(column, text=translate(heading))
+                if "text" in widget.keys():
+                    current = widget.cget("text")
+                    if current:
+                        widget.configure(text=translate(current))
+            except (tk.TclError, TypeError):
+                pass
+            for child in widget.winfo_children():
+                visit(child)
+
+        visit(self)
+        for var_name in (
+            "drive_c_free_var", "drive_c_detail_var", "total_cleaned_var",
+            "session_cleaned_var", "browser_running_text_var", "chrome_status_var",
+            "capcut_status_var", "capcut_running_text_var", "panther_status_var",
+            "dev_cache_status_var",
+        ):
+            var = getattr(self, var_name, None)
+            if var is not None:
+                var.set(translate(var.get()))
 
     def show_about_popup(self) -> None:
         top = tk.Toplevel(self)
