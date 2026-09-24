@@ -590,6 +590,8 @@ class CleanCApp(tk.Tk):
         # State Variables: Web Browsers (Chrome, Brave, Edge, Firefox)
         self.all_items: list[TargetItem] = []
         self.displayed_items: list[TargetItem] = []
+        self.browser_sort_column = "no"
+        self.browser_sort_reverse = False
         self.is_scanning = False
         self.is_deleting = False
 
@@ -621,6 +623,8 @@ class CleanCApp(tk.Tk):
         self.capcut_filter_type_var = tk.StringVar(value="Semua Item")
         self.capcut_all_items: list[CapCutItem] = []
         self.capcut_displayed_items: list[CapCutItem] = []
+        self.capcut_sort_column = "no"
+        self.capcut_sort_reverse = False
         self.is_capcut_scanning = False
         self.is_capcut_deleting = False
         self.capcut_status_var = tk.StringVar(
@@ -781,7 +785,7 @@ class CleanCApp(tk.Tk):
             background="#0d1424",
             foreground=COLOR_TEXT_MUTED,
             font=("Segoe UI", 9, "bold"),
-            padding=[18, 7],
+            padding=[12, 4],
             borderwidth=1,
             bordercolor="#1e293b",
             lightcolor="#1e293b",
@@ -810,7 +814,7 @@ class CleanCApp(tk.Tk):
             background="#0f172a",
             foreground=COLOR_TEXT_MUTED,
             font=("Segoe UI", 8, "bold"),
-            padding=[14, 5],
+            padding=[10, 3],
             borderwidth=1,
             bordercolor="#1e293b",
             lightcolor="#1e293b",
@@ -1576,11 +1580,11 @@ class CleanCApp(tk.Tk):
 
         cols = ("no", "profile", "category", "size", "path")
         self.tree = ttk.Treeview(tbl_frame, columns=cols, show="headings", selectmode="extended")
-        self.tree.heading("no", text="#")
-        self.tree.heading("profile", text="Profil")
-        self.tree.heading("category", text="Kategori")
-        self.tree.heading("size", text="Ukuran")
-        self.tree.heading("path", text="Lokasi Direktori")
+        self.tree.heading("no", text="#", command=lambda: self.sort_browser("no"))
+        self.tree.heading("profile", text="Profil", command=lambda: self.sort_browser("profile"))
+        self.tree.heading("category", text="Kategori", command=lambda: self.sort_browser("category"))
+        self.tree.heading("size", text="Ukuran", command=lambda: self.sort_browser("size"))
+        self.tree.heading("path", text="Lokasi Direktori", command=lambda: self.sort_browser("path"))
 
         self.tree.column("no", width=42, minwidth=35, anchor="center")
         self.tree.column("profile", width=140, minwidth=100, anchor="w")
@@ -1682,6 +1686,15 @@ class CleanCApp(tk.Tk):
                 continue
             filtered.append(item)
 
+        if self.browser_sort_column != "no":
+            key = self.browser_sort_column
+            filtered.sort(key=lambda item: {
+                "profile": item.profile.casefold(),
+                "category": item.category.casefold(),
+                "size": item.size,
+                "path": str(item.path).casefold(),
+            }[key], reverse=self.browser_sort_reverse)
+
         self.displayed_items = filtered
         self.tree.delete(*self.tree.get_children())
         total_size = 0
@@ -1711,6 +1724,14 @@ class CleanCApp(tk.Tk):
                 f"Menampilkan {len(self.displayed_items)} folder ({format_size(total_size)}) "
                 f"dari total {len(self.all_items)} ditemukan."
             )
+
+    def sort_browser(self, column: str) -> None:
+        if self.browser_sort_column == column:
+            self.browser_sort_reverse = not self.browser_sort_reverse
+        else:
+            self.browser_sort_column = column
+            self.browser_sort_reverse = False
+        self.apply_filter()
 
     def _on_tree_select(self) -> None:
         selected_iids = self.tree.selection()
@@ -2018,13 +2039,13 @@ class CleanCApp(tk.Tk):
 
         columns = ("no", "category", "name", "type", "size", "files", "path")
         self.capcut_tree = ttk.Treeview(tbl_frame, columns=columns, show="headings", selectmode="extended")
-        self.capcut_tree.heading("no", text="#")
-        self.capcut_tree.heading("category", text="Kategori")
-        self.capcut_tree.heading("name", text="Nama Folder / File")
-        self.capcut_tree.heading("type", text="Tipe")
-        self.capcut_tree.heading("size", text="Ukuran")
-        self.capcut_tree.heading("files", text="Jumlah File")
-        self.capcut_tree.heading("path", text="Path Direktori")
+        self.capcut_tree.heading("no", text="#", command=lambda: self.sort_capcut("no"))
+        self.capcut_tree.heading("category", text="Kategori", command=lambda: self.sort_capcut("category"))
+        self.capcut_tree.heading("name", text="Nama Folder / File", command=lambda: self.sort_capcut("name"))
+        self.capcut_tree.heading("type", text="Tipe", command=lambda: self.sort_capcut("type"))
+        self.capcut_tree.heading("size", text="Ukuran", command=lambda: self.sort_capcut("size"))
+        self.capcut_tree.heading("files", text="Jumlah File", command=lambda: self.sort_capcut("files"))
+        self.capcut_tree.heading("path", text="Path Direktori", command=lambda: self.sort_capcut("path"))
 
         self.capcut_tree.column("no", width=38, minwidth=35, anchor="center")
         self.capcut_tree.column("category", width=80, minwidth=65, anchor="center")
@@ -2785,6 +2806,17 @@ class CleanCApp(tk.Tk):
                 continue
             filtered.append(item)
 
+        if self.capcut_sort_column != "no":
+            key = self.capcut_sort_column
+            filtered.sort(key=lambda item: {
+                "category": item.category.casefold(),
+                "name": item.name.casefold(),
+                "type": item.item_type.casefold(),
+                "size": item.size,
+                "files": item.files,
+                "path": str(item.path).casefold(),
+            }[key], reverse=self.capcut_sort_reverse)
+
         self.capcut_displayed_items = filtered
         self.capcut_tree.delete(*self.capcut_tree.get_children())
         total_size = 0
@@ -2808,6 +2840,14 @@ class CleanCApp(tk.Tk):
         # Update metric cards
         self.card_capcut_cache.update_data(format_size(cache_bytes), "File sementara CapCut")
         self.card_capcut_projects.update_data(format_size(projects_bytes), "Draft video editing")
+
+    def sort_capcut(self, column: str) -> None:
+        if self.capcut_sort_column == column:
+            self.capcut_sort_reverse = not self.capcut_sort_reverse
+        else:
+            self.capcut_sort_column = column
+            self.capcut_sort_reverse = False
+        self.apply_capcut_filter()
 
         has_items = len(self.capcut_displayed_items) > 0
         self.btn_capcut_delete_all.configure(state="normal" if has_items else "disabled")
