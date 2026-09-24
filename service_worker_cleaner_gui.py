@@ -2433,13 +2433,18 @@ class CleanCApp(tk.Tk):
         act_row = tk.Frame(parent, bg=COLOR_BG_SURFACE)
         act_row.pack(fill="x", pady=(0, 8))
 
-        ttk.Checkbutton(
+        panther_include_checkbox = ttk.Checkbutton(
             act_row,
             text="Bersihkan juga file .log tambahan di root folder Panther",
             variable=self.panther_include_all,
             style="Clean.TCheckbutton",
             takefocus=0,
-        ).pack(side="left")
+        )
+        panther_include_checkbox.pack(side="left")
+        # Do not leave the native keyboard-focus rectangle around the label.
+        panther_include_checkbox.bind(
+            "<FocusIn>", lambda _event: self.after_idle(self.focus_set), add="+"
+        )
 
         self.btn_panther_clean = ttk.Button(
             act_row,
