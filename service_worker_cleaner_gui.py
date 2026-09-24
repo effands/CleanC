@@ -1296,23 +1296,6 @@ class CleanCApp(tk.Tk):
         )
         self.btn_donate.pack(side="right", padx=(0, 6))
 
-        # CapCut live process quick badge
-        self.btn_header_capcut = tk.Button(
-            brand_right,
-            text="🎬 CapCut: Memeriksa...",
-            font=("Segoe UI", 8, "bold"),
-            bg="#1e293b",
-            fg=COLOR_TEXT_MUTED,
-            relief="flat",
-            activebackground="#334155",
-            activeforeground="#ffffff",
-            command=self.close_capcut_process,
-            padx=8,
-            pady=3,
-            cursor="hand2",
-        )
-        self.btn_header_capcut.pack(side="right", padx=(0, 6))
-
         # SYSTEM STORAGE & CLEANING STATS DASHBOARD STRIP
         banner = tk.Frame(self, bg=COLOR_BG_CARD, padx=14, pady=8, highlightbackground=COLOR_BORDER, highlightthickness=1)
         banner.pack(fill="x", padx=12, pady=(0, 8))
@@ -1803,7 +1786,10 @@ class CleanCApp(tk.Tk):
         self.chrome_radar.start()
         self.chrome_dot.set_state("scanning")
         self.chrome_progress.start_indeterminate()
-        self.chrome_status_var.set(f"Sedang memindai profil {b_label}... Mohon tunggu.")
+        self.chrome_status_var.set(self._ui_text(
+            f"Sedang memindai profil {b_label}... Mohon tunggu.",
+            f"Scanning {b_label} profiles... Please wait.",
+        ))
 
         self.tree.delete(*self.tree.get_children())
         self.all_items.clear()
@@ -2622,18 +2608,8 @@ class CleanCApp(tk.Tk):
         running = is_capcut_running()
         if running:
             self.capcut_running_text_var.set("⚠️ CapCut sedang berjalan (Disarankan ditutup sebelum menghapus)")
-            self.btn_header_capcut.configure(
-                text="🛑 CapCut Aktif (Klik Tutup)",
-                bg="#7f1d1d",
-                fg="#fca5a5",
-            )
         else:
             self.capcut_running_text_var.set("✅ CapCut tidak berjalan (Aman untuk dibersihkan)")
-            self.btn_header_capcut.configure(
-                text="✅ CapCut Siap",
-                bg="#064e3b",
-                fg="#6ee7b7",
-            )
 
     # ------------------------------------------------------------------
     # ABOUT & DONATE QRIS POPUPS
@@ -2652,6 +2628,9 @@ class CleanCApp(tk.Tk):
         for source, target in pairs:
             result = result.replace(source, target)
         return result
+
+    def _ui_text(self, indonesian: str, english: str) -> str:
+        return english if self.language == "en" else indonesian
 
     def _install_language_traces(self) -> None:
         self._language_trace_guard = False
@@ -3052,7 +3031,10 @@ class CleanCApp(tk.Tk):
         self.capcut_radar.start()
         self.capcut_dot.set_state("scanning")
         self.capcut_progress.start_indeterminate()
-        self.capcut_status_var.set("Sedang memindai Cache & Projects CapCut... Mohon tunggu.")
+        self.capcut_status_var.set(self._ui_text(
+            "Sedang memindai Cache & Projects CapCut... Mohon tunggu.",
+            "Scanning CapCut Cache & Projects... Please wait.",
+        ))
 
         self.capcut_tree.delete(*self.capcut_tree.get_children())
         self.capcut_all_items.clear()
