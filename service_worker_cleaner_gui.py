@@ -851,6 +851,7 @@ class CleanCApp(tk.Tk):
             relief="flat",
             borderwidth=1,
             padding=[8, 5],
+            focuscolor="",
         )
         style.map(
             "TCombobox",
@@ -885,6 +886,8 @@ class CleanCApp(tk.Tk):
             borderwidth=0,
             tabmargins=[0, 0, 0, 0],
             relief="flat",
+            focuscolor="",
+            focuscolor="",
         )
         style.configure(
             "TNotebook.Tab",
@@ -897,6 +900,7 @@ class CleanCApp(tk.Tk):
             lightcolor="#1e293b",
             darkcolor="#1e293b",
             relief="flat",
+            focuscolor="",
         )
         style.map(
             "TNotebook.Tab",
@@ -914,6 +918,7 @@ class CleanCApp(tk.Tk):
             borderwidth=0,
             tabmargins=[0, 0, 0, 0],
             relief="flat",
+            focuscolor="",
         )
         style.configure(
             "Sub.TNotebook.Tab",
@@ -1351,7 +1356,7 @@ class CleanCApp(tk.Tk):
         self.lbl_session_cleaned.pack(anchor="w", pady=(2, 0))
 
         # Main Notebook Tabs
-        self.notebook = ttk.Notebook(self)
+        self.notebook = ttk.Notebook(self, takefocus=False)
         self.notebook.pack(fill="both", expand=True, padx=12, pady=(0, 10))
 
         # TAB 1: Web Browsers Cleaner
@@ -1559,6 +1564,7 @@ class CleanCApp(tk.Tk):
             values=["🌐 Google Chrome", "🦁 Brave Browser", "🌊 Microsoft Edge", "🦊 Mozilla Firefox"],
             state="readonly",
             width=20,
+            takefocus=False,
         )
         self.browser_combo.pack(side="left", padx=(0, 10))
         self.browser_combo.bind("<<ComboboxSelected>>", lambda e: self.on_browser_combo_selected())
@@ -1613,6 +1619,7 @@ class CleanCApp(tk.Tk):
             values=[FILTER_ALL, FILTER_SW, FILTER_CACHE],
             state="readonly",
             width=28,
+            takefocus=False,
         )
         self.filter_combobox.pack(side="left", padx=(0, 10))
         self.filter_combobox.bind("<<ComboboxSelected>>", lambda e: self.apply_filter())
@@ -2033,7 +2040,7 @@ class CleanCApp(tk.Tk):
     # ------------------------------------------------------------------
     def _build_capcut_tab(self, parent: tk.Frame) -> None:
         # CapCut Sub-Notebook
-        capcut_sub_nb = ttk.Notebook(parent, style="Sub.TNotebook")
+        capcut_sub_nb = ttk.Notebook(parent, style="Sub.TNotebook", takefocus=False)
         capcut_sub_nb.pack(fill="both", expand=True)
 
         # Sub-tab 1: Cache & Projects
@@ -2078,6 +2085,7 @@ class CleanCApp(tk.Tk):
             values=[SCOPE_CAPCUT_ALL, SCOPE_CAPCUT_CACHE, SCOPE_CAPCUT_PROJECTS],
             state="readonly",
             width=32,
+            takefocus=False,
         )
         self.capcut_scope_combo.pack(side="left", padx=(0, 10))
         self.capcut_scope_combo.bind("<<ComboboxSelected>>", lambda e: self.start_capcut_scan())
@@ -2097,6 +2105,7 @@ class CleanCApp(tk.Tk):
             values=["Semua Item", "Hanya Folder / Draft", "Hanya File"],
             state="readonly",
             width=18,
+            takefocus=False,
         )
         self.capcut_type_combo.pack(side="left", padx=(0, 10))
         self.capcut_type_combo.bind("<<ComboboxSelected>>", lambda e: self.apply_capcut_filter())
