@@ -2433,18 +2433,39 @@ class CleanCApp(tk.Tk):
         act_row = tk.Frame(parent, bg=COLOR_BG_SURFACE)
         act_row.pack(fill="x", pady=(0, 8))
 
-        panther_include_checkbox = ttk.Checkbutton(
-            act_row,
+        # Custom checkbox: no native Tk/ttk focus ring can be drawn around it.
+        panther_include_box = tk.Frame(act_row, bg=COLOR_BG_SURFACE, cursor="hand2")
+        panther_include_box.pack(side="left")
+        panther_include_mark = tk.Canvas(
+            panther_include_box, width=18, height=18, bg=COLOR_BG_SURFACE,
+            highlightthickness=0, bd=0, cursor="hand2"
+        )
+        panther_include_mark.pack(side="left", padx=(0, 4))
+        panther_include_label = tk.Label(
+            panther_include_box,
             text="Bersihkan juga file .log tambahan di root folder Panther",
-            variable=self.panther_include_all,
-            style="Clean.TCheckbutton",
-            takefocus=0,
+            font=("Segoe UI", 9), fg=COLOR_TEXT_WHITE, bg=COLOR_BG_SURFACE,
+            cursor="hand2",
         )
-        panther_include_checkbox.pack(side="left")
-        # Do not leave the native keyboard-focus rectangle around the label.
-        panther_include_checkbox.bind(
-            "<FocusIn>", lambda _event: self.after_idle(self.focus_set), add="+"
-        )
+        panther_include_label.pack(side="left")
+
+        def paint_panther_checkbox(*_args):
+            panther_include_mark.delete("all")
+            checked = self.panther_include_all.get()
+            fill = COLOR_CYAN if checked else COLOR_BG_CARD
+            outline = COLOR_CYAN if checked else COLOR_BORDER_LIGHT
+            panther_include_mark.create_rectangle(2, 2, 16, 16, fill=fill, outline=outline, width=1)
+            if checked:
+                panther_include_mark.create_line(5, 9, 8, 12, 13, 5, fill="#ffffff", width=2)
+
+        def toggle_panther_checkbox(_event=None):
+            self.panther_include_all.set(not self.panther_include_all.get())
+            self.focus_set()
+
+        for widget in (panther_include_box, panther_include_mark, panther_include_label):
+            widget.bind("<Button-1>", toggle_panther_checkbox)
+        self.panther_include_all.trace_add("write", paint_panther_checkbox)
+        paint_panther_checkbox()
 
         self.btn_panther_clean = ttk.Button(
             act_row,
