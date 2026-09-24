@@ -687,7 +687,8 @@ class CleanCApp(tk.Tk):
         self.drive_c_detail_var = tk.StringVar(value="Total: Memeriksa...")
         self.total_cleaned_var = tk.StringVar(value=format_size(self.lifetime_freed_bytes))
         self.session_cleaned_var = tk.StringVar(value="Sesi ini: 0 B dibebaskan")
-        self.language = "id"
+        # English is the default; users can switch to Indonesian from the header.
+        self.language = "en"
 
         # State Variables: Web Browsers (Chrome, Brave, Edge, Firefox)
         self.all_items: list[TargetItem] = []
@@ -757,6 +758,7 @@ class CleanCApp(tk.Tk):
         self._configure_styles()
         self._build_ui()
         self._install_language_traces()
+        self._refresh_language_labels()
 
         # Initial Background Scans
         self.refresh_disk_usage()
