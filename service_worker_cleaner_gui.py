@@ -94,6 +94,8 @@ COLOR_BG_CARD = "#172033"         # Elevated Card
 COLOR_BG_INPUT = "#0f172a"        # Inputs & Search
 COLOR_BORDER = "#30415c"          # Soft borders
 COLOR_BORDER_LIGHT = "#4b6388"    # Focused borders
+# Softer than the native white ttk outline, while still separating panels.
+COLOR_BORDER_SOFT = "#263750"
 
 COLOR_TEXT_WHITE = "#f8fafc"      # Primary text
 COLOR_TEXT_MUTED = "#94a3b8"      # Secondary text
@@ -919,6 +921,9 @@ class CleanCApp(tk.Tk):
             "TNotebook",
             background=COLOR_BG_ROOT,
             borderwidth=0,
+            bordercolor=COLOR_BORDER_SOFT,
+            lightcolor=COLOR_BORDER_SOFT,
+            darkcolor=COLOR_BORDER_SOFT,
             tabmargins=[0, 0, 0, 0],
             relief="flat",
             focuscolor="",
@@ -950,6 +955,9 @@ class CleanCApp(tk.Tk):
             "Sub.TNotebook",
             background=COLOR_BG_SURFACE,
             borderwidth=0,
+            bordercolor=COLOR_BORDER_SOFT,
+            lightcolor=COLOR_BORDER_SOFT,
+            darkcolor=COLOR_BORDER_SOFT,
             tabmargins=[0, 0, 0, 0],
             relief="flat",
             focuscolor="",
@@ -986,6 +994,10 @@ class CleanCApp(tk.Tk):
             font=("Segoe UI", 9),
             rowheight=26,
             borderwidth=0,
+            bordercolor=COLOR_BORDER_SOFT,
+            lightcolor=COLOR_BORDER_SOFT,
+            darkcolor=COLOR_BORDER_SOFT,
+            relief="flat",
         )
         style.configure(
             "Treeview.Heading",
