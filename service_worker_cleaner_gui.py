@@ -143,6 +143,21 @@ UI_EN_REPLACEMENTS = [
     ("Hanya terpasang 1 versi terbaru. Tidak ada versi lama untuk dihapus.", "Only the latest version is installed. There are no old versions to delete."),
     ("Klik 'Clean Panther Logs' untuk membersihkan folders log monitor.", "Click 'Clean Panther Logs' to clean monitor log folders."),
     ("Also clean extra .log filess in the Panther root folders", "Also clean extra .log files in the Panther root folder"),
+    ("Cache dari Playwright", "Playwright cache"), ("binary browser lama", "old browser binaries"),
+    ("dapat mengakumulasi", "can accumulate"), ("puluhan Gigabyte", "dozens of gigabytes"),
+    ("secara cerdas menandai", "intelligently identifies"), ("versi browser", "browser versions"),
+    ("lama dan cache aman untuk dibersihkan", "old and safe caches to clean"),
+    ("sembari tetap menjaga versi aktif tersimpan", "while protecting active versions"),
+    ("Folder C:\\Windows\\Panther\\monitor", "The C:\\Windows\\Panther\\monitor folder"),
+    ("secara berkala mengakumulasi", "periodically accumulates"), ("file log diagnostic sistem", "system diagnostic log files"),
+    ("dan telemetry yang dapat menyita ruang hard disk", "and telemetry that can consume disk space"),
+    ("dapat menghentikan service monitor secara aman", "can safely stop the monitor service"),
+    ("membersihkan seluruh log usang", "clean all stale logs"), ("menyalakan kembali driver sistem", "restart the system driver"),
+    ("Sedang memindai", "Scanning"), ("Mohon tunggu", "Please wait"),
+    ("Bersihkan Item Tercentang", "Clean Selected Items"),
+    ("Sangat Aman Dihapus", "Safe to Delete"), ("Versi Terbaru", "Latest Version"),
+    ("Folder Bersih", "Empty Folder"), ("Terkunci & Tidak dapat dihapus", "Locked & Cannot be deleted"),
+    ("Folder Versi Lama di Apps", "Old Version Folders in Apps"),
     ("Kapasitas Drive C:", "C: Drive Capacity"), ("Sisa Free:", "Free Space:"),
     ("dari Total", "of Total"), ("Tersedia", "Available"), ("Terpakai", "Used"),
     ("Total Telah Dibersihkan:", "Total Cleaned:"), ("Sesi ini:", "This session:"),
@@ -739,6 +754,7 @@ class CleanCApp(tk.Tk):
 
         self._configure_styles()
         self._build_ui()
+        self._install_language_traces()
 
         # Initial Background Scans
         self.refresh_disk_usage()
@@ -2550,6 +2566,37 @@ class CleanCApp(tk.Tk):
         self.btn_donate.configure(text="💖 Donate QRIS" if self.language == "en" else "💖 Donasi QRIS")
         self._refresh_language_labels()
 
+    def _translate_text(self, value: str) -> str:
+        pairs = UI_EN_REPLACEMENTS if self.language == "en" else [(en, id_text) for id_text, en in UI_EN_REPLACEMENTS]
+        result = value
+        for source, target in pairs:
+            result = result.replace(source, target)
+        return result
+
+    def _install_language_traces(self) -> None:
+        self._language_trace_guard = False
+        variable_names = (
+            "drive_c_free_var", "drive_c_detail_var", "total_cleaned_var", "session_cleaned_var",
+            "browser_running_text_var", "chrome_status_var", "filter_var", "capcut_scope_var",
+            "capcut_filter_type_var", "capcut_status_var", "capcut_running_text_var",
+            "panther_status_var", "dev_cache_status_var", "capcut_version_status_var",
+            "capcut_latest_ver_var", "capcut_savable_var",
+        )
+        for name in variable_names:
+            var = getattr(self, name, None)
+            if var is not None:
+                var.trace_add("write", lambda *_args, v=var: self._translate_var_write(v))
+
+    def _translate_var_write(self, var) -> None:
+        if self.language != "en" or getattr(self, "_language_trace_guard", False):
+            return
+        value = var.get()
+        translated = self._translate_text(value)
+        if translated != value:
+            self._language_trace_guard = True
+            var.set(translated)
+            self._language_trace_guard = False
+
     def _refresh_language_labels(self) -> None:
         """Refresh the visible shell and browser controls after a language switch."""
         english = self.language == "en"
@@ -2583,6 +2630,8 @@ class CleanCApp(tk.Tk):
         pairs = UI_EN_REPLACEMENTS if english else [(en, id_text) for id_text, en in UI_EN_REPLACEMENTS]
 
         def translate(value: str) -> str:
+            if english:
+                return self._translate_text(value)
             result = value
             for source, target in pairs:
                 result = result.replace(source, target)
