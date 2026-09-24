@@ -351,11 +351,13 @@ class ModernRadarSpinner(tk.Canvas):
             fill="#ffffff", outline=COLOR_CYAN
         )
 
-        self.angle_outer = (self.angle_outer + 8) % 360
-        self.angle_inner = (self.angle_inner - 12) % 360
-        self.pulse_phase += 0.25
+        # Smaller per-frame steps at ~60 FPS make the small 24/28px spinner
+        # appear continuous instead of jumping between visibly distinct arcs.
+        self.angle_outer = (self.angle_outer + 4) % 360
+        self.angle_inner = (self.angle_inner - 6) % 360
+        self.pulse_phase += 0.125
 
-        self.after_id = self.after(30, self._step)
+        self.after_id = self.after(16, self._step)
 
 
 class ShimmerProgressBar(tk.Canvas):
