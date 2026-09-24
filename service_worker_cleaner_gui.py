@@ -149,6 +149,8 @@ UI_EN_REPLACEMENTS = [
     ("Status Browser:", "Browser Status:"), ("Status CapCut:", "CapCut Status:"),
     ("Versi Terbaru:", "Latest Version:"), ("Dapat Dihemat:", "Can Save:"),
     ("Memindai", "Scanning"), ("Pembersihan selesai", "Cleaning complete"),
+    ("dibebaskan", "freed"), ("folder terdeteksi", "folders detected"),
+    ("dari", "of"), ("dipilih", "selected"), ("Mohon tunggu", "Please wait"),
     ("sedang berjalan", "is running"), ("Disarankan ditutup sebelum menghapus", "Recommended to close before cleaning"),
     ("Pilih Rekomendasi", "Select Recommended"), ("Pilih Semua", "Select All"),
     ("Batal Pilih", "Deselect All"), ("Centang Semua", "Check All"),
@@ -687,6 +689,7 @@ class CleanCApp(tk.Tk):
         self.capcut_displayed_items: list[CapCutItem] = []
         self.capcut_sort_column = "no"
         self.capcut_sort_reverse = False
+        self.generic_sort_reverse: dict[tuple[str, str], bool] = {}
         self.is_capcut_scanning = False
         self.is_capcut_deleting = False
         self.capcut_status_var = tk.StringVar(
@@ -1312,7 +1315,7 @@ class CleanCApp(tk.Tk):
 
         # TAB 1: Web Browsers Cleaner
         chrome_frame = tk.Frame(self.notebook, bg=COLOR_BG_SURFACE, padx=12, pady=10)
-        self.notebook.add(chrome_frame, text="  🌐 Web Browsers (Chrome, Brave, Edge & Firefox)  ")
+        self.notebook.add(chrome_frame, text="  🌐 Web Browsers  ")
         self._build_chrome_tab(chrome_frame)
 
         # TAB 2: CapCut Studio Hub
@@ -1795,6 +1798,29 @@ class CleanCApp(tk.Tk):
             self.browser_sort_reverse = False
         self.apply_filter()
 
+    def sort_tree_rows(self, tree: ttk.Treeview, column: str) -> None:
+        """Sort any Treeview in-place while preserving item IDs and selection."""
+        key = str(tree)
+        state_key = (key, column)
+        reverse = not self.generic_sort_reverse.get(state_key, False)
+        self.generic_sort_reverse[state_key] = reverse
+        columns = list(tree["columns"])
+        try:
+            index = columns.index(column)
+        except ValueError:
+            return
+        rows = [(tree.set(iid, column), iid) for iid in tree.get_children("")]
+
+        def sort_key(row):
+            value = row[0].replace(",", "").strip()
+            try:
+                return float(value.split()[0])
+            except (ValueError, IndexError):
+                return value.casefold()
+
+        for position, (_value, iid) in enumerate(sorted(rows, key=sort_key, reverse=reverse)):
+            tree.move(iid, "", position)
+
     def _on_tree_select(self) -> None:
         selected_iids = self.tree.selection()
         count = len(selected_iids)
@@ -2230,13 +2256,8 @@ class CleanCApp(tk.Tk):
         self.version_tree = ttk.Treeview(
             tbl_frame, columns=ver_cols, show="headings", selectmode="browse"
         )
-        self.version_tree.heading("check", text="[ ✓ ]")
-        self.version_tree.heading("version", text="Nomor Versi")
-        self.version_tree.heading("status", text="Status Proteksi")
-        self.version_tree.heading("size", text="Ukuran Disk")
-        self.version_tree.heading("files", text="Jumlah File")
-        self.version_tree.heading("modified", text="Tanggal Modifikasi")
-        self.version_tree.heading("path", text="Lokasi Folder")
+        for col, label in (("check", "[ ✓ ]"), ("version", "Nomor Versi"), ("status", "Status Proteksi"), ("size", "Ukuran Disk"), ("files", "Jumlah File"), ("modified", "Tanggal Modifikasi"), ("path", "Lokasi Folder")):
+            self.version_tree.heading(col, text=label, command=lambda c=col: self.sort_tree_rows(self.version_tree, c))
 
         self.version_tree.column("check", width=45, minwidth=40, anchor="center")
         self.version_tree.column("version", width=120, minwidth=90, anchor="w")
@@ -2379,9 +2400,8 @@ class CleanCApp(tk.Tk):
 
         cols = ("tag", "filename", "size")
         self.panther_tree = ttk.Treeview(tbl_frame, columns=cols, show="headings", selectmode="browse")
-        self.panther_tree.heading("tag", text="Tipe")
-        self.panther_tree.heading("filename", text="Nama File Log")
-        self.panther_tree.heading("size", text="Ukuran")
+        for col, label in (("tag", "Tipe"), ("filename", "Nama File Log"), ("size", "Ukuran")):
+            self.panther_tree.heading(col, text=label, command=lambda c=col: self.sort_tree_rows(self.panther_tree, c))
 
         self.panther_tree.column("tag", width=120, anchor="center")
         self.panther_tree.column("filename", width=550, anchor="w")
@@ -2505,8 +2525,7 @@ class CleanCApp(tk.Tk):
         """Refresh the visible shell and browser controls after a language switch."""
         english = self.language == "en"
         if hasattr(self, "notebook"):
-            self.notebook.tab(0, text=("  🌐 Web Browsers (Chrome, Brave, Edge & Firefox)  "
-                                       if english else "  🌐 Web Browser (Chrome, Brave, Edge & Firefox)  "))
+            self.notebook.tab(0, text="  🌐 Web Browsers  ")
             self.notebook.tab(1, text="  🎬 CapCut Studio  " if english else "  🎬 CapCut Studio  ")
             self.notebook.tab(2, text="  🪟 Windows Panther  " if english else "  🪟 Windows Panther  ")
             self.notebook.tab(3, text="  🛠 Dev & Package Cache  " if english else "  🛠 Cache Dev & Package  ")
@@ -2567,7 +2586,7 @@ class CleanCApp(tk.Tk):
             "drive_c_free_var", "drive_c_detail_var", "total_cleaned_var",
             "session_cleaned_var", "browser_running_text_var", "chrome_status_var",
             "capcut_status_var", "capcut_running_text_var", "panther_status_var",
-            "dev_cache_status_var",
+            "dev_cache_status_var", "filter_var", "capcut_scope_var", "capcut_filter_type_var",
         ):
             var = getattr(self, var_name, None)
             if var is not None:
@@ -3566,13 +3585,8 @@ class CleanCApp(tk.Tk):
             show="headings",
             selectmode="extended",
         )
-        self.dev_cache_tree.heading("check", text="Pilih")
-        self.dev_cache_tree.heading("category", text="Kategori / Tool")
-        self.dev_cache_tree.heading("name", text="Nama Folder / Versi")
-        self.dev_cache_tree.heading("recommendation", text="Rekomendasi & Status")
-        self.dev_cache_tree.heading("size", text="Ukuran")
-        self.dev_cache_tree.heading("files", text="File")
-        self.dev_cache_tree.heading("path", text="Lokasi Folder")
+        for col, label in (("check", "Pilih"), ("category", "Kategori / Tool"), ("name", "Nama Folder / Versi"), ("recommendation", "Rekomendasi & Status"), ("size", "Ukuran"), ("files", "File"), ("path", "Lokasi Folder")):
+            self.dev_cache_tree.heading(col, text=label, command=lambda c=col: self.sort_tree_rows(self.dev_cache_tree, c))
 
         self.dev_cache_tree.column("check", width=55, anchor="center")
         self.dev_cache_tree.column("category", width=140, anchor="w")
