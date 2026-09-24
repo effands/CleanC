@@ -1674,9 +1674,9 @@ class CleanCApp(tk.Tk):
         profiles_found = set()
         for item in self.all_items:
             profiles_found.add(item.profile)
-            if selected_filter == FILTER_SW and item.category != "Service Worker":
+            if selected_filter in (FILTER_SW, "Service Worker only") and item.category != "Service Worker":
                 continue
-            if selected_filter == FILTER_CACHE and item.category != "Cache":
+            if selected_filter in (FILTER_CACHE, "Cache only") and item.category != "Cache":
                 continue
             if query and query not in item.profile.lower() and query not in str(item.path).lower():
                 continue
@@ -2416,6 +2416,35 @@ class CleanCApp(tk.Tk):
         self.btn_language.configure(text="ID" if self.language == "en" else "EN")
         self.btn_about.configure(text="ℹ️ About" if self.language == "en" else "ℹ️ Tentang")
         self.btn_donate.configure(text="💖 Donate QRIS" if self.language == "en" else "💖 Donasi QRIS")
+        self._refresh_language_labels()
+
+    def _refresh_language_labels(self) -> None:
+        """Refresh the visible shell and browser controls after a language switch."""
+        english = self.language == "en"
+        if hasattr(self, "notebook"):
+            self.notebook.tab(0, text=("  🌐 Web Browsers (Chrome, Brave, Edge & Firefox)  "
+                                       if english else "  🌐 Web Browser (Chrome, Brave, Edge & Firefox)  "))
+            self.notebook.tab(1, text="  🎬 CapCut Studio  " if english else "  🎬 CapCut Studio  ")
+            self.notebook.tab(2, text="  🪟 Windows Panther  " if english else "  🪟 Windows Panther  ")
+            self.notebook.tab(3, text="  🛠 Dev & Package Cache  " if english else "  🛠 Cache Dev & Package  ")
+        if hasattr(self, "chrome_status_var") and not self.is_scanning and not self.is_deleting:
+            self.chrome_status_var.set(
+                "Select a target and click Scan to find cleanable folders."
+                if english else "Pilih target dan klik Scan untuk mencari folder yang dapat dibersihkan."
+            )
+        if hasattr(self, "filter_combobox"):
+            self.filter_combobox.configure(values=(
+                ["All (Service Worker & Cache)", "Service Worker only", "Cache only"]
+                if english else [FILTER_ALL, FILTER_SW, FILTER_CACHE]
+            ))
+        if hasattr(self, "scan_button"):
+            self.scan_button.configure(text="🔍 Scan Now" if english else "🔍 Scan Sekarang")
+        if hasattr(self, "btn_close_browser"):
+            self.btn_close_browser.configure(text="🛑 Close Browser" if english else "🛑 Tutup Browser")
+        if hasattr(self, "btn_delete_selected"):
+            self.btn_delete_selected.configure(text="🗑️ Delete Selected" if english else "🗑️ Hapus Terpilih")
+        if hasattr(self, "btn_delete_all"):
+            self.btn_delete_all.configure(text="🗑️ Delete All Filtered" if english else "🗑️ Hapus Semua Sesuai Filter")
 
     def show_about_popup(self) -> None:
         top = tk.Toplevel(self)
