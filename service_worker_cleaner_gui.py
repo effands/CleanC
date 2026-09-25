@@ -1595,7 +1595,8 @@ class CleanCApp(tk.Tk):
         metric_bar.pack(fill="x", pady=(0, 8))
 
         self.card_chrome_total = ModernMetricCard(
-            metric_bar, "🌐", "Service Worker & Cache", "0 B", "Klik Scan untuk memindai", COLOR_BLUE
+            metric_bar, "🌐", "Service Worker & Cache", "0 B",
+            "Click Scan to search" if self.language == "en" else "Klik Scan untuk memindai", COLOR_BLUE
         )
         self.card_chrome_total.pack(side="left", fill="x", expand=True, padx=(0, 6))
 
@@ -1696,8 +1697,14 @@ class CleanCApp(tk.Tk):
         ).pack(side="left", padx=(0, 10), ipady=2)
         self.search_var.trace_add("write", lambda *args: self.apply_filter())
 
-        ttk.Button(flt_row, text="☑️ Pilih Semua", style="Secondary.TButton", command=self.select_all_rows).pack(side="right", padx=(4, 0))
-        ttk.Button(flt_row, text="☐ Batal Pilih", style="Secondary.TButton", command=self.deselect_all_rows).pack(side="right")
+        self.btn_select_all_rows = ttk.Button(
+            flt_row, text="☑️ Pilih Semua", style="Success.TButton", command=self.select_all_rows
+        )
+        self.btn_select_all_rows.pack(side="right", padx=(4, 0))
+        self.btn_deselect_all_rows = ttk.Button(
+            flt_row, text="☐ Batal Pilih", style="Secondary.TButton", command=self.deselect_all_rows
+        )
+        self.btn_deselect_all_rows.pack(side="right")
 
         # Bottom Action Bar (Pinned to bottom FIRST so it is NEVER cut off)
         bottom = tk.Frame(parent, bg=COLOR_BG_SURFACE)
@@ -2756,6 +2763,15 @@ class CleanCApp(tk.Tk):
             self.btn_delete_selected.configure(text="🗑️ Delete Selected" if english else "🗑️ Hapus Terpilih")
         if hasattr(self, "btn_delete_all"):
             self.btn_delete_all.configure(text="🗑️ Delete All Filtered" if english else "🗑️ Hapus Semua Sesuai Filter")
+        if hasattr(self, "card_chrome_total"):
+            self.card_chrome_total.update_data(
+                self.card_chrome_total.lbl_value.cget("text"),
+                "Click Scan to search" if english else "Klik Scan untuk memindai",
+            )
+        if hasattr(self, "btn_select_all_rows"):
+            self.btn_select_all_rows.configure(text="☑️ Select All" if english else "☑️ Pilih Semua")
+        if hasattr(self, "btn_deselect_all_rows"):
+            self.btn_deselect_all_rows.configure(text="☐ Deselect All" if english else "☐ Batal Pilih")
         self._translate_visible_ui(english)
         if hasattr(self, "btn_delete_checked_versions"):
             self.btn_delete_checked_versions.configure(
