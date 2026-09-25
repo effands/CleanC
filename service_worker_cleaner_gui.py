@@ -2593,6 +2593,11 @@ class CleanCApp(tk.Tk):
         self.panther_tree.heading("tag", text="Type" if self.language == "en" else "Tipe")
         self.panther_tree.heading("filename", text="Log File Name" if self.language == "en" else "Nama File Log")
         self.panther_tree.heading("size", text="Size" if self.language == "en" else "Ukuran")
+        if not self.is_panther_cleaning:
+            self.panther_status_var.set(self._ui_text(
+                "Klik 'Clean Panther Logs' untuk membersihkan folder log monitor.",
+                "Click 'Clean Panther Logs' to clean monitor log folders.",
+            ))
 
     def start_panther_clean(self) -> None:
         if self.is_panther_cleaning:
