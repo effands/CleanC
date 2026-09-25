@@ -157,10 +157,32 @@ def clean_recycle_bin() -> tuple[bool, str]:
         empty.argtypes = [ctypes.c_void_p, ctypes.c_wchar_p, ctypes.c_uint32]
         empty.restype = ctypes.c_long
         # SHERB_NOCONFIRMATION | SHERB_NOPROGRESSUI | SHERB_NOSOUND
-        result = empty(None, None, 0x00000007)
-        if result == 0:
+        flags = 0x00000007
+
+        # Passing NULL for the root path asks Windows to empty every volume at
+        # once.  Some Windows builds return E_UNEXPECTED (-2147418113) for
+        # that call when the bin is already empty.  Empty each logical drive
+        # separately so an empty bin is treated as a successful no-op.
+        drives = ctypes.windll.kernel32.GetLogicalDrives()
+        failures = []
+        found_drive = False
+        for idx in range(26):
+            if not (drives & (1 << idx)):
+                continue
+            found_drive = True
+            root = f"{chr(65 + idx)}:\\"
+            result = empty(None, root, flags)
+            if result != 0:
+                # Recycle Bin may already be empty on this volume. Confirm
+                # that before reporting a real failure.
+                check = get_recycle_bin_info()
+                if check["items"] == 0:
+                    return True, "Recycle Bin sudah kosong."
+                failures.append(f"{root} (kode {result})")
+
+        if not failures or not found_drive:
             return True, "Recycle Bin berhasil dikosongkan."
-        return False, f"Gagal mengosongkan Recycle Bin (kode {result})."
+        return False, "Gagal mengosongkan Recycle Bin: " + ", ".join(failures)
     except (AttributeError, OSError):
         return False, "Windows tidak dapat mengakses Recycle Bin."
 

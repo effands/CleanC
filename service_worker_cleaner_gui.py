@@ -1566,7 +1566,10 @@ class CleanCApp(tk.Tk):
 
         ok, msg = kill_browser_process(key)
         if ok:
-            messagebox.showinfo("Berhasil", f"{b_label} berhasil ditutup.")
+            messagebox.showinfo(
+                "Success" if self.language == "en" else "Berhasil",
+                f"{b_label} closed successfully." if self.language == "en" else f"{b_label} berhasil ditutup.",
+            )
         else:
             messagebox.showwarning("Perhatian", msg)
         self.check_browser_process()
@@ -2103,15 +2106,21 @@ class CleanCApp(tk.Tk):
 
         if failed:
             messagebox.showwarning(
-                "Selesai Sebagian",
-                f"{removed} folder berhasil dihapus.\n{len(failed)} folder gagal dihapus "
-                "(kemungkinan sedang digunakan oleh Chrome).\n\n"
-                "Silakan tutup Chrome sepenuhnya lalu coba lagi.",
+                "Partial Cleanup" if self.language == "en" else "Selesai Sebagian",
+                (f"{removed} folders deleted.\n{len(failed)} folders could not be deleted "
+                 "(they may be in use by Chrome).\n\n"
+                 "Close Chrome completely and try again."
+                 if self.language == "en" else
+                 f"{removed} folder berhasil dihapus.\n{len(failed)} folder gagal dihapus "
+                 "(kemungkinan sedang digunakan oleh Chrome).\n\n"
+                 "Silakan tutup Chrome sepenuhnya lalu coba lagi."),
             )
         else:
             messagebox.showinfo(
-                "Pembersihan Selesai",
-                f"Berhasil! {removed} folder telah dihapus dan ruang disk telah dibebaskan.",
+                "Cleanup Complete" if self.language == "en" else "Pembersihan Selesai",
+                (f"Success! {removed} folders were deleted and disk space was freed."
+                 if self.language == "en" else
+                 f"Berhasil! {removed} folder telah dihapus dan ruang disk telah dibebaskan."),
             )
 
         self.start_scan()
@@ -2650,7 +2659,12 @@ class CleanCApp(tk.Tk):
             if freed > 0:
                 self.record_cleaned_space(freed)
             self.panther_status_var.set("Pembersihan selesai! Log Panther dan Recycle Bin sudah dibersihkan.")
-            messagebox.showinfo("Berhasil", f"{msg}\n\nLog Panther dan Recycle Bin telah dibersihkan.")
+            messagebox.showinfo(
+                "Success" if self.language == "en" else "Berhasil",
+                ("Panther logs and the Recycle Bin were cleaned successfully."
+                 if self.language == "en" else
+                 "Log Panther dan Recycle Bin berhasil dibersihkan."),
+            )
         else:
             self.panther_status_var.set(f"Gagal: {msg}")
             messagebox.showerror("Gagal", f"Tidak dapat membersihkan log Panther:\n{msg}")
@@ -3096,7 +3110,10 @@ class CleanCApp(tk.Tk):
 
         ok, msg = kill_capcut_process()
         if ok:
-            messagebox.showinfo("Berhasil", "CapCut berhasil ditutup.")
+            messagebox.showinfo(
+                "Success" if self.language == "en" else "Berhasil",
+                "CapCut closed successfully." if self.language == "en" else "CapCut berhasil ditutup.",
+            )
         else:
             messagebox.showwarning("Perhatian", msg)
         self.check_capcut_process()
@@ -3228,6 +3245,27 @@ class CleanCApp(tk.Tk):
         )
         self.card_capcut_projects.update_data(format_size(projects_bytes), "Draft video editing")
 
+        # Refresh the controls and status after every scan/filter operation.
+        # Previously the UI remained stuck on “Scanning...” even after the
+        # worker had completed, especially when no CapCut items were found.
+        has_items = bool(self.capcut_displayed_items)
+        self.btn_capcut_delete_all.configure(state="normal" if has_items else "disabled")
+        self.btn_capcut_delete_selected.configure(state="disabled")
+        if not self.capcut_all_items:
+            self.capcut_status_var.set(
+                "CapCut folders are clean (no items found)."
+                if self.language == "en" else
+                "Folder CapCut bersih (tidak ditemukan item)."
+            )
+        else:
+            self.capcut_status_var.set(
+                f"Showing {len(self.capcut_displayed_items)} items ({format_size(total_size)}) "
+                f"of {len(self.capcut_all_items)} found."
+                if self.language == "en" else
+                f"Menampilkan {len(self.capcut_displayed_items)} item ({format_size(total_size)}) "
+                f"dari total {len(self.capcut_all_items)} ditemukan."
+            )
+
     def sort_capcut(self, column: str) -> None:
         if self.capcut_sort_column == column:
             self.capcut_sort_reverse = not self.capcut_sort_reverse
@@ -3239,14 +3277,6 @@ class CleanCApp(tk.Tk):
         has_items = len(self.capcut_displayed_items) > 0
         self.btn_capcut_delete_all.configure(state="normal" if has_items else "disabled")
         self.btn_capcut_delete_selected.configure(state="disabled")
-
-        if not self.capcut_all_items:
-            self.capcut_status_var.set("Folder CapCut bersih (tidak ditemukan item).")
-        else:
-            self.capcut_status_var.set(
-                f"Menampilkan {len(self.capcut_displayed_items)} item ({format_size(total_size)}) "
-                f"dari total {len(self.capcut_all_items)} ditemukan."
-            )
 
     def _on_capcut_tree_select(self) -> None:
         selected_iids = self.capcut_tree.selection()
@@ -3415,15 +3445,21 @@ class CleanCApp(tk.Tk):
 
         if failed:
             messagebox.showwarning(
-                "Selesai Sebagian",
-                f"{removed} item CapCut berhasil dihapus.\n{len(failed)} item gagal dihapus "
-                "(kemungkinan sedang digunakan oleh proses CapCut).\n\n"
-                "Silakan tutup CapCut sepenuhnya lalu coba lagi.",
+                "Partial Cleanup" if self.language == "en" else "Selesai Sebagian",
+                (f"{removed} CapCut items deleted.\n{len(failed)} items could not be deleted "
+                 "(they may be in use by CapCut).\n\n"
+                 "Close CapCut completely and try again."
+                 if self.language == "en" else
+                 f"{removed} item CapCut berhasil dihapus.\n{len(failed)} item gagal dihapus "
+                 "(kemungkinan sedang digunakan oleh proses CapCut).\n\n"
+                 "Silakan tutup CapCut sepenuhnya lalu coba lagi."),
             )
         else:
             messagebox.showinfo(
-                "Pembersihan CapCut Selesai",
-                f"Berhasil! {removed} item CapCut telah dihapus dan ruang disk telah dibebaskan.",
+                "CapCut Cleanup Complete" if self.language == "en" else "Pembersihan CapCut Selesai",
+                (f"Success! {removed} CapCut items were deleted and disk space was freed."
+                 if self.language == "en" else
+                 f"Berhasil! {removed} item CapCut telah dihapus dan ruang disk telah dibebaskan."),
             )
 
         self.start_capcut_scan()
@@ -3714,15 +3750,21 @@ class CleanCApp(tk.Tk):
 
         if failed:
             messagebox.showwarning(
-                "Selesai Sebagian",
-                f"{removed} versi lama CapCut berhasil dihapus.\n{len(failed)} folder gagal dihapus "
-                "(kemungkinan sedang digunakan oleh proses CapCut).\n\n"
-                "Silakan tutup CapCut sepenuhnya lalu coba lagi.",
+                "Partial Cleanup" if self.language == "en" else "Selesai Sebagian",
+                (f"{removed} old CapCut versions deleted.\n{len(failed)} folders could not be deleted "
+                 "(they may be in use by CapCut).\n\n"
+                 "Close CapCut completely and try again."
+                 if self.language == "en" else
+                 f"{removed} versi lama CapCut berhasil dihapus.\n{len(failed)} folder gagal dihapus "
+                 "(kemungkinan sedang digunakan oleh proses CapCut).\n\n"
+                 "Silakan tutup CapCut sepenuhnya lalu coba lagi."),
             )
         else:
             messagebox.showinfo(
-                "Pembersihan Versi Lama Selesai",
-                f"Berhasil! {removed} versi lama CapCut telah dihapus dan ruang disk telah dibebaskan.",
+                "Old Versions Cleanup Complete" if self.language == "en" else "Pembersihan Versi Lama Selesai",
+                (f"Success! {removed} old CapCut versions were deleted and disk space was freed."
+                 if self.language == "en" else
+                 f"Berhasil! {removed} versi lama CapCut telah dihapus dan ruang disk telah dibebaskan."),
             )
 
         self.start_capcut_version_scan()
@@ -4092,15 +4134,21 @@ class CleanCApp(tk.Tk):
 
         if errors:
             messagebox.showwarning(
-                "Pembersihan Selesai Sebagian",
-                f"{count} folder berhasil dibersihkan ({format_size(freed)} dibebaskan).\n\n"
-                f"{len(errors)} folder gagal/terkunci:\n" + "\n".join(errors[:5]),
+                "Cleanup Partially Complete" if self.language == "en" else "Pembersihan Selesai Sebagian",
+                ((f"{count} folders cleaned ({format_size(freed)} freed).\n\n"
+                  f"{len(errors)} folders failed or are locked:\n" + "\n".join(errors[:5]))
+                 if self.language == "en" else
+                 f"{count} folder berhasil dibersihkan ({format_size(freed)} dibebaskan).\n\n"
+                 f"{len(errors)} folder gagal/terkunci:\n" + "\n".join(errors[:5])),
             )
         else:
             messagebox.showinfo(
-                "Pembersihan Selesai",
-                f"Sukses! {count} folder dev cache berhasil dibersihkan.\n"
-                f"Total ruang disk dibebaskan: {format_size(freed)}.",
+                "Cleanup Complete" if self.language == "en" else "Pembersihan Selesai",
+                ((f"Success! {count} dev cache folders were cleaned.\n"
+                  f"Total disk space freed: {format_size(freed)}.")
+                 if self.language == "en" else
+                 f"Sukses! {count} folder dev cache berhasil dibersihkan.\n"
+                 f"Total ruang disk dibebaskan: {format_size(freed)}."),
             )
 
         self.start_dev_cache_scan()
