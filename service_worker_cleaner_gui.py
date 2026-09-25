@@ -64,6 +64,7 @@ from clean_chrome_service_workers import (
     clean_capcut_old_versions,
     clean_capcut_projects,
     clean_panther_logs,
+    clean_recycle_bin,
     extract_profile_name,
     find_targets,
     format_size,
@@ -72,6 +73,7 @@ from clean_chrome_service_workers import (
     get_capcut_versions_info,
     get_dir_size,
     get_panther_info,
+    get_recycle_bin_info,
     is_admin,
     is_browser_running,
     is_capcut_running,
@@ -1243,7 +1245,7 @@ class CleanCApp(tk.Tk):
 
         logo_title = tk.Label(
             title_row,
-            text="⚡ CleanC",
+            text="🧹 CleanC",
             font=("Segoe UI", 18, "bold"),
             fg=COLOR_CYAN_LIGHT,
             bg=COLOR_BG_ROOT,
@@ -2298,7 +2300,7 @@ class CleanCApp(tk.Tk):
         self.card_ver_latest.pack(side="left", fill="x", expand=True, padx=(0, 6))
 
         self.card_ver_savable = ModernMetricCard(
-            v_metrics, "⚡", "Ruang Dapat Dihemat", "0 B", "Folder Versi Lama di Apps", COLOR_RED
+            v_metrics, "🧹", "Ruang Dapat Dihemat", "0 B", "Folder Versi Lama di Apps", COLOR_RED
         )
         self.card_ver_savable.pack(side="left", fill="x", expand=True)
 
@@ -2369,7 +2371,7 @@ class CleanCApp(tk.Tk):
 
         self.btn_clean_all_versions = ttk.Button(
             ver_bottom,
-            text="⚡ Bersihkan Semua Versi Lama (1-Klik)",
+            text="🧹 Bersihkan Semua Versi Lama (1-Klik)",
             command=self.clean_all_old_versions_one_click,
             style="Danger.TButton",
         )
@@ -2516,7 +2518,7 @@ class CleanCApp(tk.Tk):
 
         self.btn_panther_clean = ttk.Button(
             act_row,
-            text="⚡ Bersihkan Log Panther Sekarang",
+            text="🧹 Bersihkan Log Panther Sekarang",
             style="Success.TButton",
             command=self.start_panther_clean,
         )
@@ -2577,21 +2579,22 @@ class CleanCApp(tk.Tk):
             )
         else:
             self.lbl_panther_admin.configure(
-                text="Permission Status: Standard User (UAC Required)" if self.language == "en" else "Status Izin: Pengguna Biasa (Memerlukan UAC)",
+                text="Permission Status: Standard User (No UAC; protected files may be skipped)" if self.language == "en" else "Status Izin: Pengguna Biasa (Tanpa UAC; file terlindungi mungkin dilewati)",
                 fg=COLOR_AMBER,
             )
 
         info = get_panther_info()
-        self._panther_total_bytes = info.get("total_size", 0)
+        recycle_info = get_recycle_bin_info()
+        self._panther_total_bytes = info.get("total_size", 0) + recycle_info.get("total_size", 0)
         mon_str = format_size(info["monitor_size"])
-        tot_str = format_size(info["total_size"])
+        tot_str = format_size(self._panther_total_bytes)
         self.lbl_monitor_size.configure(
             text=(f"Size C:\\Windows\\Panther\\monitor: {mon_str}" if self.language == "en"
                   else f"Ukuran C:\\Windows\\Panther\\monitor: {mon_str}")
         )
         self.lbl_panther_total.configure(
-            text=(f"Total files detected: {len(info['files'])} files (Total: {tot_str})" if self.language == "en"
-                  else f"Total file terdeteksi: {len(info['files'])} file (Total: {tot_str})")
+            text=(f"Total files detected: {len(info['files'])} files + {recycle_info['items']} Recycle Bin items (Total: {tot_str})" if self.language == "en"
+                  else f"Total file terdeteksi: {len(info['files'])} file + {recycle_info['items']} Recycle Bin (Total: {tot_str})")
         )
 
         self.panther_tree.delete(*self.panther_tree.get_children())
@@ -2603,8 +2606,8 @@ class CleanCApp(tk.Tk):
         self.panther_tree.heading("size", text="Size" if self.language == "en" else "Ukuran")
         if not self.is_panther_cleaning:
             self.panther_status_var.set(self._ui_text(
-                "Klik 'Clean Panther Logs' untuk membersihkan folder log monitor.",
-                "Click 'Clean Panther Logs' to clean monitor log folders.",
+                "Klik 'Bersihkan Log Panther' untuk membersihkan log Panther dan Recycle Bin.",
+                "Click 'Clean Panther Logs' to clean Panther logs and the Recycle Bin.",
             ))
 
     def start_panther_clean(self) -> None:
@@ -2620,8 +2623,8 @@ class CleanCApp(tk.Tk):
         self.panther_radar.start()
         self.panther_dot.set_state("working")
         self.panther_status_var.set(self._ui_text(
-            "Sedang membersihkan log Panther... Mohon tunggu.",
-            "Cleaning Panther logs... Please wait.",
+            "Sedang membersihkan log Panther dan Recycle Bin... Mohon tunggu.",
+            "Cleaning Panther logs and Recycle Bin... Please wait.",
         ))
 
         threading.Thread(
@@ -2629,7 +2632,10 @@ class CleanCApp(tk.Tk):
         ).start()
 
     def _panther_clean_worker(self, include_all: bool) -> None:
-        ok, msg = clean_panther_logs(include_all_panther=include_all)
+        panther_ok, panther_msg = clean_panther_logs(include_all_panther=include_all)
+        recycle_ok, recycle_msg = clean_recycle_bin()
+        ok = panther_ok and recycle_ok
+        msg = f"{panther_msg}\n{recycle_msg}"
         self.after(0, self._panther_clean_done, ok, msg)
 
     def _panther_clean_done(self, ok: bool, msg: str) -> None:
@@ -2643,8 +2649,8 @@ class CleanCApp(tk.Tk):
             freed = getattr(self, "_panther_prev_size", 0)
             if freed > 0:
                 self.record_cleaned_space(freed)
-            self.panther_status_var.set("Pembersihan selesai! Folder log Panther kini bersih.")
-            messagebox.showinfo("Berhasil", f"{msg}\n\nFolder log Panther telah dibersihkan.")
+            self.panther_status_var.set("Pembersihan selesai! Log Panther dan Recycle Bin sudah dibersihkan.")
+            messagebox.showinfo("Berhasil", f"{msg}\n\nLog Panther dan Recycle Bin telah dibersihkan.")
         else:
             self.panther_status_var.set(f"Gagal: {msg}")
             messagebox.showerror("Gagal", f"Tidak dapat membersihkan log Panther:\n{msg}")
@@ -2779,7 +2785,7 @@ class CleanCApp(tk.Tk):
             )
         if hasattr(self, "btn_clean_all_versions"):
             self.btn_clean_all_versions.configure(
-                text="⚡ Clean All Old Versions (One Click)" if english else "⚡ Bersihkan Semua Versi Lama (1-Klik)"
+                text="🧹 Clean All Old Versions (One Click)" if english else "🧹 Bersihkan Semua Versi Lama (1-Klik)"
             )
         if hasattr(self, "capcut_version_hint_label"):
             self.capcut_version_hint_label.configure(
@@ -2867,7 +2873,7 @@ class CleanCApp(tk.Tk):
         # Header Title
         tk.Label(
             card,
-            text="⚡ CleanC",
+            text="🧹 CleanC",
             font=("Segoe UI", 20, "bold"),
             fg=COLOR_CYAN_LIGHT,
             bg=COLOR_BG_CARD,
@@ -3643,7 +3649,7 @@ class CleanCApp(tk.Tk):
 
         latest_name = next((v.name for v in self.capcut_versions if v.is_latest), "terbaru")
         confirm_text = (
-            f"⚡ 1-KLIK BERSIHKAN SEMUA VERSI LAMA\n\n"
+            f"🧹 1-KLIK BERSIHKAN SEMUA VERSI LAMA\n\n"
             f"Hapus SEMUA {len(old_versions)} folder versi lama CapCut ({format_size(total_bytes)})?\n\n"
             f"✓ Versi paling baru ({latest_name}) akan TETAP DISIMPAN dan terlindungi.\n"
             f"✓ Ruang disk sebesar {format_size(total_bytes)} akan dibebaskan.\n\n"

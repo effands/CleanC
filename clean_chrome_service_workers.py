@@ -111,6 +111,60 @@ def get_panther_info() -> dict:
     return info
 
 
+def get_recycle_bin_info() -> dict:
+    """Return the current Recycle Bin item count and size on all drives."""
+    info = {"items": 0, "total_size": 0}
+    if os.name != "nt":
+        return info
+    try:
+        import ctypes
+
+        class SHQUERYRBINFO(ctypes.Structure):
+            _fields_ = [
+                ("cbSize", ctypes.c_uint32),
+                ("i64Size", ctypes.c_int64),
+                ("i64NumItems", ctypes.c_int64),
+            ]
+
+        query = ctypes.windll.shell32.SHQueryRecycleBinW
+        query.argtypes = [ctypes.c_wchar_p, ctypes.POINTER(SHQUERYRBINFO)]
+        query.restype = ctypes.c_long
+        # Query each logical drive; this is more reliable than passing NULL
+        # on Windows builds that keep per-volume Recycle Bin statistics.
+        drives = ctypes.windll.kernel32.GetLogicalDrives()
+        for idx in range(26):
+            if not (drives & (1 << idx)):
+                continue
+            data = SHQUERYRBINFO()
+            data.cbSize = ctypes.sizeof(data)
+            root = f"{chr(65 + idx)}:\\"
+            if query(root, ctypes.byref(data)) == 0:
+                info["items"] += max(0, int(data.i64NumItems))
+                info["total_size"] += max(0, int(data.i64Size))
+    except (AttributeError, OSError):
+        pass
+    return info
+
+
+def clean_recycle_bin() -> tuple[bool, str]:
+    """Empty the Windows Recycle Bin without confirmation dialogs."""
+    if os.name != "nt":
+        return False, "Recycle Bin hanya tersedia di Windows."
+    try:
+        import ctypes
+
+        empty = ctypes.windll.shell32.SHEmptyRecycleBinW
+        empty.argtypes = [ctypes.c_void_p, ctypes.c_wchar_p, ctypes.c_uint32]
+        empty.restype = ctypes.c_long
+        # SHERB_NOCONFIRMATION | SHERB_NOPROGRESSUI | SHERB_NOSOUND
+        result = empty(None, None, 0x00000007)
+        if result == 0:
+            return True, "Recycle Bin berhasil dikosongkan."
+        return False, f"Gagal mengosongkan Recycle Bin (kode {result})."
+    except (AttributeError, OSError):
+        return False, "Windows tidak dapat mengakses Recycle Bin."
+
+
 def clean_panther_logs(include_all_panther: bool = False) -> tuple[bool, str]:
     """Clean Panther monitor logs by stopping WinSetupMon driver, deleting files, and restarting it."""
     import subprocess
@@ -140,24 +194,24 @@ def clean_panther_logs(include_all_panther: bool = False) -> tuple[bool, str]:
             text=True,
         )
         if res.returncode == 0:
-            return True, "Log Panther berhasil dibersihkan."
+            return True, "Log Panther berhasil dipaksa dibersihkan."
         return False, f"Gagal membersihkan: {res.stderr}"
-    else:
-        tmp_script = Path(tempfile.gettempdir()) / "clean_panther_exec.ps1"
-        tmp_script.write_text(script, encoding="utf-8")
-        cmd = f'Start-Process powershell -Verb RunAs -Wait -ArgumentList \'-NoProfile -ExecutionPolicy Bypass -File "{tmp_script}"\''
-        res = subprocess.run(
-            ["powershell", "-NoProfile", "-Command", cmd],
-            capture_output=True,
-            text=True,
-        )
-        try:
-            tmp_script.unlink(missing_ok=True)
-        except OSError:
-            pass
-        if res.returncode == 0:
-            return True, "Log Panther berhasil dibersihkan dengan izin Administrator."
-        return False, f"Gagal mengeksekusi dengan izin Administrator: {res.stderr}"
+
+    tmp_script = Path(tempfile.gettempdir()) / "clean_panther_exec.ps1"
+    tmp_script.write_text(script, encoding="utf-8")
+    cmd = f'Start-Process powershell -Verb RunAs -Wait -ArgumentList \'-NoProfile -ExecutionPolicy Bypass -File "{tmp_script}\''
+    res = subprocess.run(
+        ["powershell", "-NoProfile", "-Command", cmd],
+        capture_output=True,
+        text=True,
+    )
+    try:
+        tmp_script.unlink(missing_ok=True)
+    except OSError:
+        pass
+    if res.returncode == 0:
+        return True, "Log Panther berhasil dipaksa dibersihkan dengan izin Administrator."
+    return False, f"Gagal mengeksekusi dengan izin Administrator: {res.stderr}"
 
 
 def get_windows_cleanup_info() -> dict[str, dict]:
