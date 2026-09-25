@@ -3200,7 +3200,10 @@ class CleanCApp(tk.Tk):
             )
 
         # Update metric cards
-        self.card_capcut_cache.update_data(format_size(cache_bytes), "File sementara CapCut")
+        self.card_capcut_cache.update_data(
+            format_size(cache_bytes),
+            "Temporary CapCut files" if self.language == "en" else "File sementara CapCut",
+        )
         self.card_capcut_projects.update_data(format_size(projects_bytes), "Draft video editing")
 
     def sort_capcut(self, column: str) -> None:
