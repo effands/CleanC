@@ -2322,12 +2322,13 @@ class CleanCApp(tk.Tk):
         )
         self.capcut_version_hint_label.pack(side="left", padx=(0, 8))
 
-        ttk.Button(
+        self.btn_rescan_versions = ttk.Button(
             toolbar,
             text="🔄 Scan Ulang Versi",
             style="Secondary.TButton",
             command=self.start_capcut_version_scan,
-        ).pack(side="right")
+        )
+        self.btn_rescan_versions.pack(side="right")
 
         # Bottom Bar (Pinned to bottom FIRST so it is NEVER cut off)
         ver_bottom = tk.Frame(parent, bg=COLOR_BG_SURFACE)
@@ -2769,6 +2770,8 @@ class CleanCApp(tk.Tk):
                 text="💡 The latest version is locked and protected automatically."
                 if english else "💡 Versi terbaru terkunci & terlindungi otomatis."
             )
+        if hasattr(self, "btn_rescan_versions"):
+            self.btn_rescan_versions.configure(text="🔄 Rescan Versions" if english else "🔄 Scan Ulang Versi")
         if hasattr(self, "version_tree"):
             self._render_version_tree()
             self._update_version_status_only()
@@ -3487,7 +3490,7 @@ class CleanCApp(tk.Tk):
                     it.name,
                     stat_sym,
                     it.size_str,
-                    f"{it.files:,} file",
+                    f"{it.files:,} files" if self.language == "en" else f"{it.files:,} file",
                     it.modified,
                     str(it.path),
                 ),
@@ -3534,6 +3537,8 @@ class CleanCApp(tk.Tk):
             item = self.capcut_versions[idx]
             if item.is_latest:
                 self.capcut_version_status_var.set(
+                    f"Version {item.name} is the LATEST version. It is PROTECTED and cannot be deleted."
+                    if self.language == "en" else
                     f"Versi {item.name} adalah versi TERBARU. Versi ini DILINDUNGI dan tidak dapat dihapus."
                 )
                 return
