@@ -1124,9 +1124,10 @@ STATS_FILE = LOCAL_APPDATA / "CleanC" / "stats.json"
 
 
 def get_drive_c_usage() -> dict:
-    """Mengembalikan informasi penggunaan drive C: secara akurat."""
+    """Mengembalikan informasi penggunaan drive sistem secara akurat (Drive C: di Windows atau root / di macOS/Linux)."""
+    target_path = "C:\\" if sys.platform == "win32" else "/"
     try:
-        total, used, free = shutil.disk_usage("C:\\")
+        total, used, free = shutil.disk_usage(target_path)
         free_pct = (free / total) * 100 if total > 0 else 0
         used_pct = (used / total) * 100 if total > 0 else 0
         return {

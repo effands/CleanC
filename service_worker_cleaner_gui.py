@@ -86,6 +86,7 @@ from clean_chrome_service_workers import (
     record_freed_bytes,
     remove_target,
 )
+from license_manager import DeviceManager, generate_unique_hwid
 
 # ----------------------------------------------------------------------
 # THEME PALETTE CONSTANTS (Deep Dark Obsidian & Neon Accents)
@@ -127,14 +128,9 @@ SCOPE_CAPCUT_PROJECTS = "Hanya Projects (User Data\\Projects)"
 # one file, so a recursive refresh keeps every existing screen in sync.
 UI_EN_REPLACEMENTS = [
     ("Cache dari Playwright (binary browser lama), Node.js, NPM, PIP Python, dan PNPM dapat mengakumulasi puluhan Gigabyte di %LOCALAPPDATA%. CleanC secara cerdas menandai versi browser Playwright lama dan cache aman untuk dibersihkan, sembari tetap menjaga versi aktif tersimpan.", "Playwright (old browser binaries), Node.js, NPM, Python PIP, and PNPM caches can accumulate dozens of gigabytes in %LOCALAPPDATA%. CleanC identifies old Playwright browser versions and safe caches while protecting active versions."),
-    ("Cache dari Playwright (binary browser lama), Node.js, NPM, PIP Python, dan PNPM dapat", "Playwright (old browser binaries), Node.js, NPM, Python PIP, and PNPM caches can"),
-    ("mengakumulasi puluhan Gigabyte di %LOCALAPPDATA%. CleanC secara cerdas menandai versi browser", "accumulate dozens of gigabytes in %LOCALAPPDATA%. CleanC identifies old browser"),
-    ("Playwright lama dan cache aman untuk dibersihkan, sembari tetap menjaga versi aktif tersimpan.", "Playwright versions and safe caches while protecting active versions."),
     ("Folder C:\\Windows\\Panther\\monitor secara berkala mengakumulasi files log diagnostic sistem dan telemetry yang dapat menyita ruang hard disk. CleanC dapat menghentikan service monitor secara aman, membersihkan seluruh log usang, dan menyalakan kembali driver sistem.", "C:\\Windows\\Panther\\monitor periodically accumulates diagnostic and telemetry logs that consume disk space. CleanC safely stops the monitor service, removes stale logs, and restarts the system driver."),
-    ("Folder C:\\Windows\\Panther\\monitor secara berkala mengakumulasi file log diagnostic sistem", "C:\\Windows\\Panther\\monitor periodically accumulates system diagnostic logs"),
-    ("dan telemetry yang dapat menyita ruang hard disk. CleanC dapat menghentikan service monitor secara", "and telemetry that consume disk space. CleanC safely stops the monitor service,"),
-    ("aman, membersihkan seluruh log usang, dan menyalakan kembali driver sistem.", "removes stale logs, and restarts the system driver."),
-    ("Folder C:\\Windows\\Panther\\monitor secara berkala mengakumulasi files log diagnostic sistem dan telemetry yang dapat menyita ruang hard disk. CleanC dapat menghentikan service monitor secara aman, membersihkan seluruh log usang, dan menyalakan kembali driver sistem.", "C:\\Windows\\Panther\\monitor periodically accumulates diagnostic and telemetry logs that consume disk space. CleanC safely stops the monitor service, removes stale logs, and restarts the system driver."),
+    ("Folder C:\\Windows\\Panther\\monitor secara berkala mengakumulasi file log diagnostic sistem dan telemetry yang dapat menyita ruang hard disk. CleanC dapat menghentikan service monitor secara aman, membersihkan seluruh log usang, dan menyalakan kembali driver sistem.", "C:\\Windows\\Panther\\monitor periodically accumulates system diagnostic logs and telemetry that consume disk space. CleanC safely stops the monitor service, removes stale logs, and restarts the system driver."),
+    ("Bersihkan juga file .log tambahan di root folder Panther", "Also clean extra .log files in the Panther root folder"),
     ("File sementara CapCut", "Temporary CapCut files"), ("Draft video editing", "Video editing drafts"),
     ("Bersihkan Item Selected", "Clean Selected Items"),
     ("[OPTIONAL] Versi Terbaru", "[OPTIONAL] Latest Version"),
@@ -146,27 +142,10 @@ UI_EN_REPLACEMENTS = [
     ("TERBARU (DILINDUNGI)", "LATEST (PROTECTED)"),
     ("Hanya terpasang 1 versi terbaru. Tidak ada versi lama untuk dihapus.", "Only the latest version is installed. There are no old versions to delete."),
     ("Klik 'Clean Panther Logs' untuk membersihkan folders log monitor.", "Click 'Clean Panther Logs' to clean monitor log folders."),
-    ("Also clean extra .log filess in the Panther root folders", "Also clean extra .log files in the Panther root folder"),
-    ("Cache dari Playwright", "Playwright cache"), ("binary browser lama", "old browser binaries"),
-    ("dapat mengakumulasi", "can accumulate"), ("puluhan Gigabyte", "dozens of gigabytes"),
-    ("secara cerdas menandai", "intelligently identifies"), ("versi browser", "browser versions"),
-    ("lama dan cache aman untuk dibersihkan", "old and safe caches to clean"),
-    ("sembari tetap menjaga versi aktif tersimpan", "while protecting active versions"),
-    ("Folder C:\\Windows\\Panther\\monitor", "The C:\\Windows\\Panther\\monitor folder"),
-    ("secara berkala mengakumulasi", "periodically accumulates"), ("file log diagnostic sistem", "system diagnostic log files"),
-    ("dan telemetry yang dapat menyita ruang hard disk", "and telemetry that can consume disk space"),
-    ("dapat menghentikan service monitor secara aman", "can safely stop the monitor service"),
-    ("membersihkan seluruh log usang", "clean all stale logs"), ("menyalakan kembali driver sistem", "restart the system driver"),
-    ("Sedang memindai", "Scanning"), ("Mohon tunggu", "Please wait"),
-    ("Bersihkan Item Tercentang", "Clean Selected Items"),
-    ("Sangat Aman Dihapus", "Safe to Delete"), ("Versi Terbaru", "Latest Version"),
-    ("Folder Bersih", "Empty Folder"), ("Terkunci & Tidak dapat dihapus", "Locked & Cannot be deleted"),
-    ("Folder Versi Lama di Apps", "Old Version Folders in Apps"),
+    ("Total Telah Dibersihkan:", "Total Cleaned:"), ("Sesi ini:", "This session:"),
     ("Kapasitas Drive C:", "C: Drive Capacity"), ("Sisa Free:", "Free Space:"),
     ("dari Total", "of Total"), ("Tersedia", "Available"), ("Terpakai", "Used"),
-    ("Total Telah Dibersihkan:", "Total Cleaned:"), ("Sesi ini:", "This session:"),
-    ("Profil", "Profile"), ("Profil Terdeteksi", "Profiles Detected"),
-    ("Profile Terdeteksi", "Profiles Detected"),
+    ("Folder Versi Lama di Apps", "Old Version Folders in Apps"),
     ("Google Chrome User Data", "Google Chrome User Data"), ("folder target", "target folders"),
     ("Semua (Service Worker & Cache)", "All (Service Worker & Cache)"),
     ("Hanya Service Worker", "Service Worker Only"), ("Hanya Cache", "Cache Only"),
@@ -183,7 +162,6 @@ UI_EN_REPLACEMENTS = [
     ("Windows Panther Monitor Logs", "Windows Panther Monitor Logs"),
     ("Status Izin:", "Permission Status:"), ("Memeriksa...", "Checking..."),
     ("Menghitung...", "Calculating..."), ("Total file:", "Total files:"),
-    ("Bersihkan juga file .log tambahan di root folder Panther", "Also clean extra .log files in the Panther root folder"),
     ("Bersihkan Log Panther Sekarang", "Clean Panther Logs Now"), ("Refresh", "Refresh"),
     ("Administrator (Aman)", "Administrator (Safe)"), ("Pengguna Biasa (Memerlukan UAC)", "Standard User (UAC Required)"),
     ("Status Browser:", "Browser Status:"), ("Status CapCut:", "CapCut Status:"),
@@ -202,7 +180,34 @@ UI_EN_REPLACEMENTS = [
     ("Target Cakupan:", "Scope:"), ("Cari Profil:", "Search Profile:"),
     ("Cari Nama:", "Search Name:"), ("Filter:", "Filter:"), ("Tipe:", "Type:"),
     ("Path:", "Path:"), ("Browse...", "Browse..."), ("Tutup Browser", "Close Browser"),
-    ("Profil Terdeteksi", "Profiles Detected"), ("Kategori", "Category"),
+    ("Profil", "Profile"), ("Kategori", "Category"),
+    ("Ukuran", "Size"), ("Lokasi Direktori", "Directory Location"),
+    ("Nama Folder / File", "Folder / File Name"), ("Jumlah File", "File Count"),
+    ("Path Direktori", "Directory Path"), ("Lokasi Folder", "Folder Location"),
+    ("Service Worker & Cache", "Service Worker & Cache"), ("Semua Item", "All Items"),
+    ("Hanya Folder / Draft", "Folders / Drafts Only"), ("Hanya File", "Files Only"),
+    ("Cache & Projects (User Data)", "Cache & Projects (User Data)"),
+    ("Versi Lama CapCut (Apps)", "Old CapCut Versions (Apps)"),
+    ("Cache CapCut", "CapCut Cache"), ("Draft Projects", "Draft Projects"),
+    ("Total Dev Cache", "Total Dev Cache"), ("Tercentang Siap Bersih", "Selected to Clean"),
+    ("Rekomendasi & Status", "Recommendation & Status"), ("Pilih", "Select"),
+    ("Kategori / Tool", "Category / Tool"), ("Nama Folder / Versi", "Folder / Version"),
+    ("Lokasi Folder", "Folder Location"), ("Bersihkan Log Panther", "Clean Panther Logs"),
+    ("Web Browsers", "Web Browsers"), ("Windows Panther", "Windows Panther"),
+    ("Dev & Package Cache", "Dev & Package Cache"), ("CapCut Studio", "CapCut Studio"),
+    ("Terbuka", "Running"), ("tidak berjalan", "not running"), ("sedang berjalan", "is running"),
+    ("Aman untuk dibersihkan", "Safe to clean"), ("Disarankan ditutup sebelum menghapus", "Recommended to close before cleaning"),
+    ("Menampilkan", "Showing"), ("dari total", "of total"),
+    ("file", "files"), ("ditemukan", "found"), ("Terpilih", "Selected"),
+    ("Uncheck All", "Uncheck All"), ("Scan Ulang", "Rescan"),
+    ("Bersihkan Item Tercentang", "Clean Checked Items"),
+    ("Bersihkan Sekarang", "Clean Now"), ("Scan Sekarang", "Scan Now"),
+    ("Hapus Terpilih", "Delete Selected"), ("Hapus Semua Sesuai Filter", "Delete All Filtered"),
+    ("Hapus Semua Sesuai Target", "Delete All in Scope"), ("Pilih Browser:", "Browser:"),
+    ("Target Cakupan:", "Scope:"), ("Cari Profil:", "Search Profile:"),
+    ("Cari Nama:", "Search Name:"), ("Filter:", "Filter:"), ("Tipe:", "Type:"),
+    ("Path:", "Path:"), ("Browse...", "Browse..."), ("Tutup Browser", "Close Browser"),
+    ("Kategori", "Category"),
     ("Ukuran", "Size"), ("Lokasi Direktori", "Directory Location"),
     ("Nama Folder / File", "Folder / File Name"), ("Jumlah File", "File Count"),
     ("Path Direktori", "Directory Path"), ("Lokasi Folder", "Folder Location"),
@@ -605,6 +610,124 @@ class ModernMetricCard(tk.Frame):
         self.lbl_title.configure(text=title)
 
 
+class FlatButton(tk.Frame):
+    """Custom flat rounded/bordered button drawn via Canvas for crisp cross-platform look (macOS & Windows)."""
+
+    def __init__(
+        self,
+        parent,
+        text: str,
+        command=None,
+        bg_color: str = "#2563eb",
+        fg_color: str = "#ffffff",
+        hover_bg: str = "#3b82f6",
+        border_color: str = "",
+        font=("Segoe UI", 9, "bold"),
+        width: int | None = None,
+        height: int = 30,
+        padx: int = 12,
+        **kwargs,
+    ) -> None:
+        super().__init__(parent, bg=parent.cget("bg") if hasattr(parent, "cget") else COLOR_BG_CARD, **kwargs)
+        self.command = command
+        self.bg_color = bg_color
+        self.fg_color = fg_color
+        self.hover_bg = hover_bg
+        self.border_color = border_color
+        self.text = text
+        self.font = font
+        self.w = width
+        self.h = height
+        self.px = padx
+        self.is_disabled = False
+
+        # If width is not provided, estimate based on text length and font
+        if self.w is None:
+            # Approximate font measurement
+            char_len = len(text)
+            self.w = max(32, int(char_len * (font[1] * 0.75) + (padx * 2)))
+
+        self.canvas = tk.Canvas(
+            self,
+            width=self.w,
+            height=self.h,
+            bg=self.cget("bg"),
+            highlightthickness=0,
+            bd=0,
+            cursor="hand2",
+        )
+        self.canvas.pack(fill="none", expand=False)
+
+        self.canvas.bind("<Configure>", lambda e: self._draw())
+        self.canvas.bind("<Enter>", lambda e: self._on_enter())
+        self.canvas.bind("<Leave>", lambda e: self._on_leave())
+        self.canvas.bind("<Button-1>", lambda e: self._on_click())
+
+    def _draw(self, current_bg: str | None = None) -> None:
+        self.canvas.delete("all")
+        w = self.w or self.canvas.winfo_width()
+        if w <= 1:
+            w = 80
+        h = self.h
+        fill = (current_bg or self.bg_color) if not self.is_disabled else "#1e293b"
+        outline = self.border_color if self.border_color and not self.is_disabled else ""
+        text_fg = self.fg_color if not self.is_disabled else "#64748b"
+
+        r = 6
+        # Draw rounded rectangle smoothly without dark overlapping strokes
+        x0, y0, x1, y1 = 1, 1, w - 2, h - 2
+        dia = 2 * r
+        self.canvas.create_arc(x0, y0, x0 + dia, y0 + dia, start=90, extent=90, fill=fill, outline=fill)
+        self.canvas.create_arc(x1 - dia, y0, x1, y0 + dia, start=0, extent=90, fill=fill, outline=fill)
+        self.canvas.create_arc(x1 - dia, y1 - dia, x1, y1, start=270, extent=90, fill=fill, outline=fill)
+        self.canvas.create_arc(x0, y1 - dia, x0 + dia, y1, start=180, extent=90, fill=fill, outline=fill)
+        self.canvas.create_rectangle(x0 + r, y0, x1 - r, y1, fill=fill, outline=fill)
+        self.canvas.create_rectangle(x0, y0 + r, x1, y1 - r, fill=fill, outline=fill)
+
+        if outline:
+            # Draw crisp thin border
+            self.canvas.create_line(x0 + r, y0, x1 - r, y0, fill=outline)
+            self.canvas.create_line(x0 + r, y1, x1 - r, y1, fill=outline)
+            self.canvas.create_line(x0, y0 + r, x0, y1 - r, fill=outline)
+            self.canvas.create_line(x1, y0 + r, x1, y1 - r, fill=outline)
+            self.canvas.create_arc(x0, y0, x0 + dia, y0 + dia, start=90, extent=90, style="arc", outline=outline)
+            self.canvas.create_arc(x1 - dia, y0, x1, y0 + dia, start=0, extent=90, style="arc", outline=outline)
+            self.canvas.create_arc(x1 - dia, y1 - dia, x1, y1, start=270, extent=90, style="arc", outline=outline)
+            self.canvas.create_arc(x0, y1 - dia, x0 + dia, y1, start=180, extent=90, style="arc", outline=outline)
+
+        self.canvas.create_text(
+            w / 2,
+            h / 2,
+            text=self.text,
+            fill=text_fg,
+            font=self.font,
+        )
+
+    def _on_enter(self) -> None:
+        if not self.is_disabled:
+            self._draw(self.hover_bg)
+
+    def _on_leave(self) -> None:
+        if not self.is_disabled:
+            self._draw(self.bg_color)
+
+    def _on_click(self) -> None:
+        if not self.is_disabled and self.command:
+            self.command()
+
+    def set_text(self, text: str) -> None:
+        self.text = text
+        char_len = len(text)
+        self.w = max(32, int(char_len * (self.font[1] * 0.75) + (self.px * 2)))
+        self.canvas.configure(width=self.w)
+        self._draw()
+
+    def configure_state(self, state: str) -> None:
+        self.is_disabled = state == "disabled"
+        self.canvas.configure(cursor="" if self.is_disabled else "hand2")
+        self._draw()
+
+
 # ----------------------------------------------------------------------
 # MAIN APPLICATION
 # ----------------------------------------------------------------------
@@ -706,6 +829,9 @@ class CleanCApp(tk.Tk):
         self.session_freed_bytes = 0
         self.lifetime_freed_bytes = self.stats_data.get("total_freed_bytes", 0)
 
+        # License & Device Manager
+        self.device_mgr = DeviceManager()
+
         self.drive_c_free_var = tk.StringVar(value="Sisa Free: Memeriksa...")
         self.drive_c_detail_var = tk.StringVar(value="Total: Memeriksa...")
         self.total_cleaned_var = tk.StringVar(value=format_size(self.lifetime_freed_bytes))
@@ -793,6 +919,7 @@ class CleanCApp(tk.Tk):
         self.refresh_panther_info()
         self.check_capcut_process()
         self.check_browser_process()
+        self._update_license_button_display()
         self.start_scan()
         self.start_capcut_scan()
         self.start_capcut_version_scan()
@@ -1272,53 +1399,69 @@ class CleanCApp(tk.Tk):
         )
         sub_desc.pack(anchor="w", pady=(2, 0))
 
-        # Right quick controls
+        # Right quick controls (Modern Flat Buttons across macOS & Windows)
         brand_right = tk.Frame(header_frame, bg=COLOR_BG_ROOT)
-        brand_right.pack(side="right", pady=4)
+        brand_right.pack(side="right", fill="none", expand=False, pady=2)
 
-        # About Button
-        self.btn_language = tk.Button(
+        # License Pill / Button (Hero placement with high contrast)
+        self.btn_license = FlatButton(
+            brand_right,
+            text="🔒 UNLICENSED",
+            font=("Segoe UI", 8, "bold"),
+            bg_color="#2a1205",
+            fg_color="#fbbf24",
+            hover_bg="#451a03",
+            border_color="#b45309",
+            width=115,
+            height=28,
+            command=self.show_license_popup,
+        )
+        self.btn_license.pack(side="right", padx=(6, 0))
+
+        # Language Toggle Button
+        self.btn_language = FlatButton(
             brand_right,
             text="EN",
             font=("Segoe UI", 8, "bold"),
-            bg="#24324a", fg=COLOR_CYAN_LIGHT, relief="flat",
-            activebackground="#334155", activeforeground="#ffffff",
-            command=self.toggle_language, padx=9, pady=3, cursor="hand2",
+            bg_color="#1e293b",
+            fg_color=COLOR_CYAN_LIGHT,
+            hover_bg="#334155",
+            border_color="#334155",
+            width=42,
+            height=28,
+            command=self.toggle_language,
         )
-        self.btn_language.pack(side="right", padx=(0, 6))
+        self.btn_language.pack(side="right", padx=(6, 0))
 
-        self.btn_about = tk.Button(
+        # About Button
+        self.btn_about = FlatButton(
             brand_right,
-            text="ℹ️ About",
+            text="About",
             font=("Segoe UI", 8, "bold"),
-            bg="#1e293b",
-            fg=COLOR_CYAN_LIGHT,
-            relief="flat",
-            activebackground="#334155",
-            activeforeground="#ffffff",
+            bg_color="#1e293b",
+            fg_color=COLOR_TEXT_WHITE,
+            hover_bg="#334155",
+            border_color="#334155",
+            width=70,
+            height=28,
             command=self.show_about_popup,
-            padx=9,
-            pady=3,
-            cursor="hand2",
         )
-        self.btn_about.pack(side="right")
+        self.btn_about.pack(side="right", padx=(6, 0))
 
         # QRIS Donate Button
-        self.btn_donate = tk.Button(
+        self.btn_donate = FlatButton(
             brand_right,
-            text="💖 Donasi QRIS",
+            text="Donate",
             font=("Segoe UI", 8, "bold"),
-            bg="#1e293b",
-            fg="#f43f5e",
-            relief="flat",
-            activebackground="#334155",
-            activeforeground="#ffffff",
+            bg_color="#2a0d18",
+            fg_color="#fb7185",
+            hover_bg="#4c0519",
+            border_color="#9f1239",
+            width=72,
+            height=28,
             command=self.show_donate_popup,
-            padx=9,
-            pady=3,
-            cursor="hand2",
         )
-        self.btn_donate.pack(side="right", padx=(0, 6))
+        self.btn_donate.pack(side="right")
 
         # SYSTEM STORAGE & CLEANING STATS DASHBOARD STRIP
         banner = tk.Frame(self, bg=COLOR_BG_CARD, padx=14, pady=8, highlightbackground=COLOR_BORDER, highlightthickness=1)
@@ -1348,18 +1491,16 @@ class CleanCApp(tk.Tk):
         )
         self.lbl_drive_c_free.pack(side="left", padx=(8, 0))
 
-        btn_ref_c = tk.Button(
+        btn_ref_c = FlatButton(
             top_c,
-            text="🔄",
-            font=("Segoe UI", 7),
-            bg="#1e293b",
-            fg=COLOR_TEXT_MUTED,
-            relief="flat",
-            activebackground="#334155",
-            activeforeground="#ffffff",
-            cursor="hand2",
-            padx=4,
-            pady=0,
+            text="↻",
+            font=("Segoe UI", 11, "bold"),
+            bg_color="#1e293b",
+            fg_color=COLOR_CYAN_LIGHT,
+            hover_bg="#334155",
+            border_color="#30415c",
+            width=24,
+            height=22,
             command=self.refresh_disk_usage,
         )
         btn_ref_c.pack(side="left", padx=(8, 0))
@@ -1478,9 +1619,19 @@ class CleanCApp(tk.Tk):
 
         used_pct = info.get("used_pct", 0)
         free_pct = info.get("free_pct", 0)
-        bar_color = COLOR_RED_HOVER if free_pct < 10 else (COLOR_AMBER if free_pct < 20 else COLOR_GREEN_HOVER)
+        # Bar color reflects used percentage or warning if low free space
+        bar_color = COLOR_RED_HOVER if free_pct < 10 else (COLOR_AMBER if free_pct < 20 else COLOR_CYAN_LIGHT)
 
         self.canvas_disk_gauge.delete("all")
+        w = self.canvas_disk_gauge.winfo_width()
+        if w <= 1:
+            w = 500
+
+        # Background track
+        self.canvas_disk_gauge.create_rectangle(0, 0, w, 6, fill="#1e293b", outline="")
+        fill_w = max(0, min(w, int(w * (used_pct / 100.0))))
+        if fill_w > 0:
+            self.canvas_disk_gauge.create_rectangle(0, 0, fill_w, 6, fill=bar_color, outline="")
         w = self.canvas_disk_gauge.winfo_width()
         if w <= 1:
             w = 400
@@ -1703,7 +1854,7 @@ class CleanCApp(tk.Tk):
         self.search_var.trace_add("write", lambda *args: self.apply_filter())
 
         self.btn_select_all_rows = ttk.Button(
-            flt_row, text="☑️ Pilih Semua", style="Success.TButton", command=self.select_all_rows
+            flt_row, text="☑️ Pilih Semua", style="Secondary.TButton", command=self.select_all_rows
         )
         self.btn_select_all_rows.pack(side="right", padx=(4, 0))
         self.btn_deselect_all_rows = ttk.Button(
@@ -1991,6 +2142,8 @@ class CleanCApp(tk.Tk):
         self._on_tree_select()
 
     def delete_selected(self) -> None:
+        if not self._check_feature_licensed():
+            return
         selected_iids = self.tree.selection()
         if not selected_iids:
             return
@@ -2025,6 +2178,8 @@ class CleanCApp(tk.Tk):
             self._start_deletion(targets)
 
     def delete_all_filtered(self) -> None:
+        if not self._check_feature_licensed():
+            return
         if not self.displayed_items:
             return
 
@@ -2181,7 +2336,7 @@ class CleanCApp(tk.Tk):
         self.capcut_scope_combo.bind("<<ComboboxSelected>>", lambda e: self.start_capcut_scan())
 
         self.btn_capcut_scan = ttk.Button(
-            r1, text="🔍 Scan Sekarang", style="CapCut.TButton", command=self.start_capcut_scan
+            r1, text="🔍 Scan Sekarang", style="Primary.TButton", command=self.start_capcut_scan
         )
         self.btn_capcut_scan.pack(side="left")
 
@@ -2528,7 +2683,7 @@ class CleanCApp(tk.Tk):
         self.btn_panther_clean = ttk.Button(
             act_row,
             text="🧹 Bersihkan Log Panther Sekarang",
-            style="Success.TButton",
+            style="Primary.TButton",
             command=self.start_panther_clean,
         )
         self.btn_panther_clean.pack(side="right")
@@ -2620,6 +2775,8 @@ class CleanCApp(tk.Tk):
             ))
 
     def start_panther_clean(self) -> None:
+        if not self._check_feature_licensed():
+            return
         if self.is_panther_cleaning:
             return
 
@@ -2685,13 +2842,34 @@ class CleanCApp(tk.Tk):
     def toggle_language(self) -> None:
         """Switch the UI language; Indonesian is the default."""
         self.language = "en" if self.language == "id" else "id"
-        self.btn_language.configure(text="ID" if self.language == "en" else "EN")
-        self.btn_about.configure(text="ℹ️ About" if self.language == "en" else "ℹ️ Tentang")
-        self.btn_donate.configure(text="💖 Donate QRIS" if self.language == "en" else "💖 Donasi QRIS")
+        if hasattr(self, "btn_language"):
+            self.btn_language.set_text("ID" if self.language == "en" else "EN")
+        if hasattr(self, "btn_about"):
+            self.btn_about.set_text("ℹ️ About" if self.language == "en" else "ℹ️ Tentang")
+        if hasattr(self, "btn_donate"):
+            self.btn_donate.set_text("💖 Donate" if self.language == "en" else "💖 Donasi")
+        self._update_license_button_display()
         self._refresh_language_labels()
 
     def _translate_text(self, value: str) -> str:
-        pairs = UI_EN_REPLACEMENTS if self.language == "en" else [(en, id_text) for id_text, en in UI_EN_REPLACEMENTS]
+        if self.language == "en":
+            # Exact lookup dictionary for strict whole-token translations
+            exact_map = {
+                "👤 Profil Terdeteksi": "👤 Profiles Detected",
+                "Profil Terdeteksi": "Profiles Detected",
+                "0 Profil": "0 Profiles",
+                "Profil": "Profile",
+                "Kategori": "Category",
+                "Ukuran": "Size",
+                "Lokasi Direktori": "Directory Location",
+                "Tipe": "Type",
+            }
+            if value in exact_map:
+                return exact_map[value]
+            pairs = UI_EN_REPLACEMENTS
+        else:
+            pairs = [(en, id_text) for id_text, en in UI_EN_REPLACEMENTS]
+
         result = value
         for source, target in pairs:
             result = result.replace(source, target)
@@ -2940,54 +3118,47 @@ class CleanCApp(tk.Tk):
         ).pack(anchor="center")
 
         # More Tools Website Button
-        btn_web = tk.Button(
+        btn_web = FlatButton(
             card,
             text="🌐 More tools at appcenter.ziqva.com" if english else "🌐 Tools lainnya di appcenter.ziqva.com",
-            font=("Segoe UI", 10, "bold"),
-            bg="#2563eb",
-            fg="#ffffff",
-            relief="flat",
-            activebackground="#1d4ed8",
-            activeforeground="#ffffff",
-            cursor="hand2",
-            padx=14,
-            pady=8,
+            font=("Segoe UI", 9, "bold"),
+            bg_color="#2563eb",
+            fg_color="#ffffff",
+            hover_bg="#1d4ed8",
+            border_color="#3b82f6",
+            height=34,
             command=lambda: webbrowser.open_new_tab("https://appcenter.ziqva.com"),
         )
         btn_web.pack(fill="x", pady=(0, 8))
 
         # Donate QRIS Button
-        btn_don = tk.Button(
+        btn_don = FlatButton(
             card,
             text="💖 Support the developer (QRIS)" if english else "💖 Dukung Pengembang (Donasi QRIS)",
             font=("Segoe UI", 9, "bold"),
-            bg="#e11d48",
-            fg="#ffffff",
-            relief="flat",
-            activebackground="#be123c",
-            activeforeground="#ffffff",
-            cursor="hand2",
-            padx=14,
-            pady=7,
+            bg_color="#be123c",
+            fg_color="#ffe4e6",
+            hover_bg="#9f1239",
+            border_color="#f43f5e",
+            height=34,
             command=lambda: [top.destroy(), self.show_donate_popup()],
         )
         btn_don.pack(fill="x", pady=(0, 10))
 
         # Close Button
-        tk.Button(
+        btn_close = FlatButton(
             card,
             text="Close" if english else "Tutup",
-            font=("Segoe UI", 9),
-            bg="#1e293b",
-            fg=COLOR_TEXT_MUTED,
-            relief="flat",
-            activebackground="#334155",
-            activeforeground="#ffffff",
-            cursor="hand2",
-            padx=16,
-            pady=4,
+            font=("Segoe UI", 8, "bold"),
+            bg_color="#172236",
+            fg_color=COLOR_TEXT_MUTED,
+            hover_bg="#253552",
+            border_color="#30415c",
+            width=80,
+            height=26,
             command=top.destroy,
-        ).pack(anchor="center")
+        )
+        btn_close.pack(anchor="center")
 
         # Dynamic Auto-Centering & Precise Height (prevents any clipping on high-DPI screens)
         top.bind("<Escape>", lambda e: top.destroy())
@@ -3000,6 +3171,345 @@ class CleanCApp(tk.Tk):
             top.geometry(f"{req_w}x{req_h}+{max(0, x)}+{max(0, y)}")
         except Exception:
             top.geometry("520x620")
+
+        top.grab_set()
+
+    def _update_license_button_display(self) -> None:
+        """Update header license button color & text based on status."""
+        if not hasattr(self, "btn_license"):
+            return
+        english = self.language == "en"
+        if self.device_mgr.is_registered():
+            self.btn_license.set_text("✓ PRO ACTIVE" if english else "✓ PRO AKTIF")
+            self.btn_license.fg_color = "#34d399"
+            self.btn_license.bg_color = "#064e3b"
+            self.btn_license.hover_bg = "#065f46"
+            self.btn_license.border_color = "#059669"
+            self.btn_license._draw()
+        else:
+            self.btn_license.set_text("🔒 UNLICENSED" if english else "🔒 BELUM AKTIF")
+            self.btn_license.fg_color = "#fbbf24"
+            self.btn_license.bg_color = "#2a1205"
+            self.btn_license.hover_bg = "#451a03"
+            self.btn_license.border_color = "#b45309"
+            self.btn_license._draw()
+
+    def _check_feature_licensed(self) -> bool:
+        """Cek apakah lisensi CleanC aktif sebelum menjalankan aksi pembersihan."""
+        if self.device_mgr.is_registered():
+            return True
+
+        english = self.language == "en"
+        messagebox.showwarning(
+            "Activation Required" if english else "Aktivasi Diperlukan",
+            ("CleanC is currently unlicensed. Please activate your license to unlock deep cleaning features."
+             if english else
+             "CleanC belum diaktifkan. Silakan masukkan lisensi untuk membuka fitur pembersihan mendalam."),
+        )
+        self.show_license_popup()
+        return False
+
+    def show_license_popup(self) -> None:
+        """Tampilkan modal aktivasi lisensi CleanC dengan visual studio ultra-premium."""
+        top = tk.Toplevel(self)
+        english = self.language == "en"
+        top.title("CleanC Pro — License & Device Activation" if english else "CleanC Pro — Aktivasi Lisensi & Perangkat")
+        top.configure(bg=COLOR_BG_ROOT)
+        top.resizable(False, False)
+        top.transient(self)
+
+        base_dir = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parent))
+        icon_path = base_dir / "CleanC.ico"
+        if icon_path.exists():
+            try:
+                top.iconbitmap(str(icon_path))
+            except Exception:
+                pass
+
+        # Outer Container with cyber border glow
+        outer_frame = tk.Frame(top, bg="#0d1424", padx=1, pady=1, highlightbackground="#3b82f6", highlightthickness=1)
+        outer_frame.pack(fill="both", expand=True)
+
+        # Header Accent Gradient Line (Cyan to Violet)
+        header_accent = tk.Canvas(outer_frame, height=3, bg="#0d1424", highlightthickness=0)
+        header_accent.pack(fill="x")
+        header_accent.bind("<Configure>", lambda e: [
+            header_accent.delete("all"),
+            header_accent.create_line(0, 1, e.width, 1, fill=COLOR_CYAN_LIGHT, width=3)
+        ])
+
+        card = tk.Frame(outer_frame, bg=COLOR_BG_CARD, padx=18, pady=14)
+        card.pack(fill="both", expand=True)
+
+        # Top Badge & Logo Header
+        top_meta = tk.Frame(card, bg=COLOR_BG_CARD)
+        top_meta.pack(fill="x", pady=(0, 2))
+
+        is_reg = self.device_mgr.is_registered()
+        status_color = "#10b981" if is_reg else "#f59e0b"
+        status_bg = "#064e3b" if is_reg else "#451a03"
+        status_border = "#059669" if is_reg else "#b45309"
+        status_text = "● PRO ACTIVE" if is_reg else "● UNREGISTERED"
+
+        status_badge = tk.Label(
+            top_meta,
+            text=f"  {status_text}  ",
+            font=("Segoe UI", 8, "bold"),
+            fg=status_color,
+            bg=status_bg,
+            highlightbackground=status_border,
+            highlightthickness=1,
+            padx=5,
+            pady=1,
+        )
+        status_badge.pack(side="right")
+
+        tk.Label(
+            top_meta,
+            text="🧹 CleanC Pro",
+            font=("Segoe UI", 14, "bold"),
+            fg=COLOR_TEXT_WHITE,
+            bg=COLOR_BG_CARD,
+        ).pack(side="left")
+
+        sub_header = tk.Label(
+            card,
+            text="Hardware-bound security & license management system" if english else "Sistem keamanan perangkat keras (HWID) & lisensi resmi",
+            font=("Segoe UI", 8),
+            fg=COLOR_TEXT_DIM,
+            bg=COLOR_BG_CARD,
+        )
+        sub_header.pack(anchor="w", pady=(0, 8))
+
+        # HWID Section (Hero Card with dark inset)
+        hwid_container = tk.Frame(
+            card,
+            bg="#090d16",
+            padx=10,
+            pady=8,
+            highlightbackground="#24344d",
+            highlightthickness=1,
+        )
+        hwid_container.pack(fill="x", pady=(0, 8))
+
+        hwid_top_bar = tk.Frame(hwid_container, bg="#090d16")
+        hwid_top_bar.pack(fill="x", pady=(0, 4))
+
+        tk.Label(
+            hwid_top_bar,
+            text="DEVICE HARDWARE ID (HWID)" if english else "IDENTITAS PERANGKAT (HWID)",
+            font=("Segoe UI", 7, "bold"),
+            fg=COLOR_CYAN_LIGHT,
+            bg="#090d16",
+        ).pack(side="left")
+
+        def copy_hwid():
+            self.clipboard_clear()
+            self.clipboard_append(self.device_mgr.get_machine_id())
+            btn_copy.set_text("✓ Copied" if english else "✓ Disalin")
+            top.after(2000, lambda: btn_copy.set_text("📋 Copy HWID" if english else "📋 Salin HWID"))
+
+        btn_copy = FlatButton(
+            hwid_top_bar,
+            text="📋 Copy HWID" if english else "📋 Salin HWID",
+            font=("Segoe UI", 7, "bold"),
+            bg_color="#172236",
+            fg_color=COLOR_CYAN_LIGHT,
+            hover_bg="#253552",
+            border_color="#30415c",
+            height=22,
+            command=copy_hwid,
+        )
+        btn_copy.pack(side="right")
+
+        hwid_val_box = tk.Entry(
+            hwid_container,
+            font=("Consolas", 9, "bold"),
+            fg="#38bdf8",
+            bg="#040711",
+            relief="flat",
+            highlightbackground="#1e293b",
+            highlightthickness=1,
+            readonlybackground="#040711",
+            justify="left",
+        )
+        hwid_val_box.pack(fill="x", ipady=2)
+        hwid_val_box.insert(0, self.device_mgr.get_machine_id())
+        hwid_val_box.configure(state="readonly")
+
+        # License Details Metadata Grid
+        info_data = self.device_mgr.get_display_info()
+        meta_grid = tk.Frame(card, bg="#0f172a", padx=10, pady=6, highlightbackground="#1e293b", highlightthickness=1)
+        meta_grid.pack(fill="x", pady=(0, 8))
+
+        def make_meta_item(parent, col: int, row: int, label_text: str, val_text: str, is_highlight: bool = False):
+            f = tk.Frame(parent, bg="#0f172a", padx=4, pady=2)
+            f.grid(row=row, column=col, sticky="w", padx=6, pady=1)
+            tk.Label(
+                f,
+                text=label_text.upper(),
+                font=("Segoe UI", 7, "bold"),
+                fg=COLOR_TEXT_DIM,
+                bg="#0f172a",
+            ).pack(anchor="w")
+            tk.Label(
+                f,
+                text=val_text,
+                font=("Segoe UI", 8, "bold" if is_highlight else "normal"),
+                fg=COLOR_GREEN_HOVER if is_highlight and is_reg else (COLOR_TEXT_WHITE if is_reg else COLOR_TEXT_MUTED),
+                bg="#0f172a",
+            ).pack(anchor="w")
+
+        make_meta_item(meta_grid, 0, 0, "Registered To" if english else "Pemilik Lisensi", info_data.get("user_name", "unknown") or "None")
+        make_meta_item(meta_grid, 1, 0, "User Email" if english else "Alamat Email", info_data.get("user_email", "unknown") or "None")
+        make_meta_item(meta_grid, 0, 1, "Expiry Date" if english else "Masa Berlaku", info_data.get("expired", "unknown") or "-")
+        rem_str = f"{info_data.get('remaining', '0')} days left" if english else f"{info_data.get('remaining', '0')} hari tersisa"
+        make_meta_item(meta_grid, 1, 1, "License Remaining" if english else "Sisa Durasi", rem_str if is_reg else "-", is_highlight=True)
+
+        meta_grid.columnconfigure(0, weight=1)
+        meta_grid.columnconfigure(1, weight=1)
+
+        # Activation Form Box
+        form_frame = tk.Frame(card, bg=COLOR_BG_CARD)
+        form_frame.pack(fill="x", pady=(0, 6))
+
+        tk.Label(
+            form_frame,
+            text="LICENSE KEY / ACTIVATION TOKEN" if english else "KUNCI LISENSI / TOKEN AKTIVASI",
+            font=("Segoe UI", 7, "bold"),
+            fg=COLOR_TEXT_WHITE,
+            bg=COLOR_BG_CARD,
+        ).pack(anchor="w", pady=(0, 3))
+
+        token_entry = tk.Entry(
+            form_frame,
+            font=("Consolas", 9),
+            fg="#ffffff",
+            bg="#090d16",
+            relief="flat",
+            highlightbackground="#334155",
+            highlightcolor=COLOR_CYAN,
+            highlightthickness=1,
+            insertbackground="#ffffff",
+        )
+        token_entry.pack(fill="x", ipady=4, pady=(0, 4))
+        if info_data.get("token"):
+            token_entry.insert(0, info_data["token"])
+
+        lbl_msg = tk.Label(
+            form_frame,
+            text="",
+            font=("Segoe UI", 7),
+            fg=COLOR_CYAN,
+            bg=COLOR_BG_CARD,
+            wraplength=420,
+            justify="left",
+        )
+        lbl_msg.pack(anchor="w", pady=(0, 3))
+
+        def on_activate():
+            token_val = token_entry.get().strip()
+            if not token_val:
+                lbl_msg.configure(
+                    text="Token lisensi tidak boleh kosong." if not english else "License token cannot be empty.",
+                    fg=COLOR_RED,
+                )
+                return
+
+            btn_act.configure_state("disabled")
+            btn_act.set_text("Connecting..." if english else "Menghubungkan...")
+            lbl_msg.configure(
+                text="Menghubungkan ke Ziqva Cloud Security..." if not english else "Connecting to Ziqva Cloud Security...",
+                fg=COLOR_CYAN_LIGHT,
+            )
+
+            def worker():
+                ok, msg = self.device_mgr.activate_license(token_val)
+                def finish():
+                    btn_act.configure_state("normal")
+                    btn_act.set_text("🚀 Activate CleanC Pro" if english else "🚀 Aktifkan CleanC Pro")
+                    if ok:
+                        lbl_msg.configure(text=f"✓ {msg}", fg=COLOR_GREEN_HOVER)
+                        status_badge.configure(text="  ● PRO ACTIVE  ", bg="#064e3b", fg="#10b981")
+                        self._update_license_button_display()
+                        messagebox.showinfo(
+                            "Success" if english else "Sukses",
+                            msg or ("CleanC Pro License activated successfully!" if english else "Lisensi CleanC Pro berhasil diaktifkan!"),
+                        )
+                        top.destroy()
+                    else:
+                        lbl_msg.configure(text=f"✗ {msg}", fg=COLOR_RED)
+                top.after(0, finish)
+
+            threading.Thread(target=worker, daemon=True).start()
+
+        btn_act = FlatButton(
+            form_frame,
+            text="🚀 Activate CleanC Pro" if english else "🚀 Aktifkan CleanC Pro",
+            font=("Segoe UI", 9, "bold"),
+            bg_color="#2563eb",
+            fg_color="#ffffff",
+            hover_bg="#1d4ed8",
+            height=30,
+            command=on_activate,
+        )
+        btn_act.pack(fill="x", pady=(2, 6))
+
+        # Bottom Bar: Get License, WhatsApp Support & Close
+        btn_row = tk.Frame(card, bg=COLOR_BG_CARD)
+        btn_row.pack(fill="x", pady=(4, 0))
+
+        btn_buy = FlatButton(
+            btn_row,
+            text="🛒 Get License" if english else "🛒 Beli Lisensi",
+            font=("Segoe UI", 7, "bold"),
+            bg_color="#172236",
+            fg_color=COLOR_CYAN_LIGHT,
+            hover_bg="#253552",
+            border_color="#30415c",
+            height=26,
+            command=lambda: webbrowser.open_new_tab("https://appcenter.ziqva.com"),
+        )
+        btn_buy.pack(side="left")
+
+        btn_support = FlatButton(
+            btn_row,
+            text="💬 Support WhatsApp",
+            font=("Segoe UI", 7, "bold"),
+            bg_color="#172236",
+            fg_color=COLOR_GREEN_HOVER,
+            hover_bg="#253552",
+            border_color="#30415c",
+            height=26,
+            command=lambda: webbrowser.open_new_tab("https://api.whatsapp.com/send/?phone=6285876681770&text=Halo+CS+CleanC+saya+ingin+tanya+lisensi"),
+        )
+        btn_support.pack(side="left", padx=(6, 0))
+
+        FlatButton(
+            btn_row,
+            text="Close" if english else "Tutup",
+            font=("Segoe UI", 7),
+            bg_color="#172236",
+            fg_color=COLOR_TEXT_MUTED,
+            hover_bg="#253552",
+            border_color="#30415c",
+            height=26,
+            command=top.destroy,
+        ).pack(side="right")
+
+        # Dynamic Centering & Auto Sizing (Compact proportional modal)
+        top.bind("<Escape>", lambda e: top.destroy())
+        top.update_idletasks()
+        req_w = 460
+        req_h = top.winfo_reqheight() + 8
+        try:
+            x = self.winfo_x() + (self.winfo_width() - req_w) // 2
+            y = self.winfo_y() + (self.winfo_height() - req_h) // 2
+            top.geometry(f"{req_w}x{req_h}+{max(0, x)}+{max(0, y)}")
+        except Exception:
+            top.geometry("460x440")
+
+        top.grab_set()
 
         top.grab_set()
 
@@ -3316,6 +3826,8 @@ class CleanCApp(tk.Tk):
         self._on_capcut_tree_select()
 
     def delete_selected_capcut(self) -> None:
+        if not self._check_feature_licensed():
+            return
         selected_iids = self.capcut_tree.selection()
         if not selected_iids:
             return
@@ -3356,6 +3868,8 @@ class CleanCApp(tk.Tk):
             self._start_capcut_deletion(targets)
 
     def delete_all_capcut(self) -> None:
+        if not self._check_feature_licensed():
+            return
         if not self.capcut_displayed_items:
             return
 
@@ -3634,6 +4148,8 @@ class CleanCApp(tk.Tk):
         self._update_version_status_only()
 
     def delete_checked_versions(self) -> None:
+        if not self._check_feature_licensed():
+            return
         targets_to_delete = [it for it in self.capcut_versions if it.checked and not it.is_latest]
         if not targets_to_delete:
             return
@@ -3662,6 +4178,8 @@ class CleanCApp(tk.Tk):
             self._start_version_deletion(targets_to_delete)
 
     def clean_all_old_versions_one_click(self) -> None:
+        if not self._check_feature_licensed():
+            return
         old_versions = [it for it in self.capcut_versions if not it.is_latest]
         if not old_versions:
             messagebox.showinfo(
@@ -4064,6 +4582,8 @@ class CleanCApp(tk.Tk):
             self._update_dev_cache_selection_status()
 
     def start_dev_cache_clean(self) -> None:
+        if not self._check_feature_licensed():
+            return
         if self.is_dev_cache_cleaning or self.is_dev_cache_scanning:
             return
 

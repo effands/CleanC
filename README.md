@@ -23,14 +23,14 @@ Run `CleanC.exe` directly. No installation is required.
 
 ## Development
 
-```powershell
-python -m py_compile clean_chrome_service_workers.py service_worker_cleaner_gui.py
-python service_worker_cleaner_gui.py
+```bash
+python3 -m py_compile clean_chrome_service_workers.py service_worker_cleaner_gui.py
+python3 service_worker_cleaner_gui.py
 ```
 
-Build the Windows executable with PyInstaller:
+Build the Windows executable with PyInstaller (on Windows or CI):
 
-```powershell
+```bash
 pyinstaller --clean --noconfirm CleanC.spec
 ```
 
@@ -38,10 +38,10 @@ The output is written to `dist/CleanC.exe`.
 
 ## CLI examples
 
-```powershell
-python clean_chrome_service_workers.py --browser chrome --type cache
-python clean_chrome_service_workers.py --windows-info
-python clean_chrome_service_workers.py --clean-windows thumbnail-cache
+```bash
+python3 clean_chrome_service_workers.py --browser chrome --type cache
+python3 clean_chrome_service_workers.py --windows-info
+python3 clean_chrome_service_workers.py --clean-windows thumbnail-cache
 ```
 
 ## Safety
