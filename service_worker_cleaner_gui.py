@@ -44,6 +44,7 @@ import system_cleanup
 import storage_explorer
 from pathlib import Path
 from tkinter import filedialog, messagebox, ttk
+from tkinter import font as tkfont
 
 from PIL import Image, ImageFilter, ImageTk
 
@@ -644,6 +645,7 @@ class FlatButton(tk.Frame):
         self.text = text
         self.font = font
         self.w = width
+        self._minimum_width = width or 32
         self.h = height
         self.px = padx
         self.is_disabled = False
@@ -651,8 +653,7 @@ class FlatButton(tk.Frame):
         # If width is not provided, estimate based on text length and font
         if self.w is None:
             # Approximate font measurement
-            char_len = len(text)
-            self.w = max(32, int(char_len * (font[1] * 0.75) + (padx * 2)))
+            self.w = max(32, tkfont.Font(self, font=font).measure(text) + padx * 2)
 
         self.canvas = tk.Canvas(
             self,
@@ -724,8 +725,7 @@ class FlatButton(tk.Frame):
 
     def set_text(self, text: str) -> None:
         self.text = text
-        char_len = len(text)
-        self.w = max(32, int(char_len * (self.font[1] * 0.75) + (self.px * 2)))
+        self.w = max(self._minimum_width, tkfont.Font(self, font=self.font).measure(text) + self.px * 2)
         self.canvas.configure(width=self.w)
         self._draw()
 
@@ -1625,7 +1625,7 @@ class CleanCApp(tk.Tk):
         self.explorer_boundary = self.explorer_path
         tk.Label(parent, text='AppData & Disk Explorer', font=('Segoe UI', 18, 'bold'),
                  bg=COLOR_BG_SURFACE, fg=COLOR_TEXT_WHITE).pack(anchor='w')
-        tk.Label(parent, text='Read-only analysis • largest first • hidden folders included • double-click a folder to explore its contents',
+        tk.Label(parent, text='Largest first • hidden folders included • + means subfolders • double-click a folder to explore',
                  bg=COLOR_BG_SURFACE, fg=COLOR_TEXT_MUTED).pack(anchor='w', pady=8)
         bar = tk.Frame(parent, bg=COLOR_BG_SURFACE)
         bar.pack(fill='x')
@@ -1638,6 +1638,9 @@ class CleanCApp(tk.Tk):
         ttk.Button(bar, text='Up', command=self._explorer_up).pack(side='left')
         ttk.Button(bar, text='Cancel', command=self.explorer_cancel.set).pack(side='left', padx=8)
         ttk.Button(bar, text='Open in File Explorer', command=self._explorer_open).pack(side='left')
+        self.explorer_delete_button = ttk.Button(bar, text='Delete Selected', style='Danger.TButton',
+                                                command=self._explorer_delete, state='disabled')
+        self.explorer_delete_button.pack(side='left', padx=8)
         self.explorer_location = tk.StringVar(value=str(self.explorer_path))
         tk.Label(parent, textvariable=self.explorer_location, bg=COLOR_BG_SURFACE,
                  fg=COLOR_CYAN_LIGHT, anchor='w', wraplength=1000).pack(fill='x', pady=8)
@@ -1654,6 +1657,7 @@ class CleanCApp(tk.Tk):
         self.explorer_tree.configure(yscrollcommand=scroll.set)
         self.explorer_tree.bind('<Double-1>', self._explorer_enter)
         self.explorer_tree.bind('<Return>', self._explorer_enter)
+        self.explorer_tree.bind('<<TreeviewSelect>>', lambda e: self._explorer_update_delete())
         self.explorer_status = tk.StringVar(value='Choose Users, Current User, Local, LocalLow, Roaming or Disk C:, then Scan. Hidden folders are included; access restrictions may produce partial totals.')
         tk.Label(parent, textvariable=self.explorer_status, bg=COLOR_BG_SURFACE,
                  fg=COLOR_TEXT_MUTED, wraplength=1100, justify='left').pack(anchor='w', pady=8)
@@ -1666,6 +1670,7 @@ class CleanCApp(tk.Tk):
         self.explorer_path = Path(path)
         self.explorer_location.set(str(path))
         self.explorer_busy = True
+        self._explorer_update_delete()
         self.explorer_cancel.clear()
         self.explorer_rows = []
         self.explorer_tree.delete(*self.explorer_tree.get_children())
@@ -1688,7 +1693,7 @@ class CleanCApp(tk.Tk):
             status.append(f"Partial: {row['errors']} access errors")
         if row['skipped']:
             status.append('Links / junctions excluded')
-        self.explorer_tree.insert('', 'end', iid=str(index), values=(row['name'],
+        self.explorer_tree.insert('', 'end', iid=str(index), values=(('＋ ' if row.get('has_subfolders') else '') + row['name'],
             'Folder' if row['is_dir'] else 'File', format_size(row['size']), f"{row['files']:,}", '; '.join(status) or 'Complete'))
         ordered = sorted(range(len(self.explorer_rows)),
                          key=lambda i: (-self.explorer_rows[i]['size'], self.explorer_rows[i]['name'].casefold()))
@@ -1697,6 +1702,7 @@ class CleanCApp(tk.Tk):
 
     def _explorer_done(self, rows, error):
         self.explorer_busy = False
+        self._explorer_update_delete()
         if error or rows is None:
             self.explorer_status.set(('Scan failed: ' + error if error else 'Scan cancelled.') +
                                     f' {len(self.explorer_rows)} completed items retained; results are incomplete.')
@@ -1728,6 +1734,44 @@ class CleanCApp(tk.Tk):
             path = row['path'] if row['is_dir'] else row['path'].parent
         if path.is_dir():
             os.startfile(str(path))
+
+    def _explorer_update_delete(self):
+        self.explorer_delete_button.configure(state='normal' if self.explorer_tree.selection() and not self.explorer_busy else 'disabled')
+
+    def _explorer_delete(self):
+        if self.explorer_busy or not self._check_feature_licensed():
+            return
+        selected = [(iid, self.explorer_rows[int(iid)]['path']) for iid in self.explorer_tree.selection()]
+        if not selected:
+            return
+        if not messagebox.askyesno('Delete Selected',
+                'Pindahkan item berikut beserta seluruh isinya ke Recycle Bin?\n\n' +
+                '\n'.join(str(path) for _, path in selected) +
+                '\n\nIni dapat menghapus data aplikasi, profil atau proyek. Tutup aplikasi terkait terlebih dahulu.'):
+            return
+        parent = self.explorer_path
+        self.explorer_busy = True
+        self._explorer_update_delete()
+        self.explorer_status.set('Moving selected items to Recycle Bin…')
+        def worker():
+            deleted, errors = [], []
+            for iid, path in selected:
+                try:
+                    storage_explorer.recycle_item(path, parent)
+                    deleted.append(iid)
+                except Exception as exc:
+                    errors.append(str(exc))
+            self.after(0, self._explorer_delete_done, deleted, errors)
+        threading.Thread(target=worker, daemon=True).start()
+
+    def _explorer_delete_done(self, deleted, errors):
+        for iid in deleted:
+            self.explorer_tree.delete(iid)
+        self.explorer_busy = False
+        self._explorer_update_delete()
+        self.explorer_status.set(f'{len(deleted)} items moved to Recycle Bin; {len(errors)} failed. Refresh to recalculate sizes. Empty Recycle Bin to free disk space.')
+        if errors:
+            messagebox.showwarning('Deletion incomplete', '\n'.join(errors[:10]))
 
     def _build_system_cleanup_tab(self, parent):
         self.system_busy = False
@@ -3343,135 +3387,69 @@ class CleanCApp(tk.Tk):
         top = tk.Toplevel(self)
         english = self.language == "en"
         top.title("About CleanC" if english else "Tentang CleanC")
-        top.configure(bg=COLOR_BG_ROOT)
+        top.configure(bg=COLOR_BG_SURFACE)
         top.resizable(False, False)
         top.transient(self)
-
         base_dir = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parent))
         icon_path = base_dir / "CleanC.ico"
         if icon_path.exists():
-            try:
-                top.iconbitmap(str(icon_path))
-            except Exception:
-                pass
-
-        # Top decorative cyan accent strip
-        tk.Frame(top, bg=COLOR_CYAN, height=4).pack(fill="x")
-
-        card = tk.Frame(top, bg=COLOR_BG_CARD, padx=28, pady=22, highlightbackground="#385173", highlightthickness=1)
-        card.pack(fill="both", expand=True, padx=16, pady=14)
-
-        # Header Title
-        tk.Label(
-            card,
-            text="🧹 CleanC",
-            font=("Segoe UI", 20, "bold"),
-            fg=COLOR_CYAN_LIGHT,
-            bg=COLOR_BG_CARD,
-        ).pack(anchor="center", pady=(0, 2))
-
-        tk.Label(
-            card,
-            text="Advanced System, Browser & App Storage Optimizer" if english else "Pembersih Sistem, Browser & Penyimpanan Aplikasi",
-            font=("Segoe UI", 9),
-            fg=COLOR_TEXT_DIM,
-            bg=COLOR_BG_CARD,
-        ).pack(anchor="center", pady=(0, 8))
-
-        # Version Pill
-        ver_frame = tk.Frame(card, bg="#1e3a8a", padx=10, pady=3)
-        ver_frame.pack(anchor="center", pady=(0, 10))
-        tk.Label(
-            ver_frame,
-            text="Version 2.5 PRO • 64-bit Edition" if english else "Versi 2.5 PRO • Edisi 64-bit",
-            font=("Segoe UI", 8, "bold"),
-            fg="#ffffff",
-            bg="#1e3a8a",
-        ).pack()
-
-        # Description Box
-        desc_frame = tk.Frame(card, bg="#0b0f19", padx=14, pady=10, highlightbackground=COLOR_BORDER, highlightthickness=1)
-        desc_frame.pack(fill="x", pady=(0, 12))
-
-        tk.Label(
-            desc_frame,
-            text=("CleanC is designed to recover disk space by safely cleaning hidden junk, Chromium browser caches, developer build artifacts, and CapCut cache and legacy versions."
-                  if english else "CleanC dirancang untuk membebaskan ruang disk dengan membersihkan file sampah tersembunyi, cache browser Chromium, artefak developer, serta cache dan versi lama CapCut secara aman."),
-            font=("Segoe UI", 9),
-            fg=COLOR_TEXT_MUTED,
-            bg="#0b0f19",
-            justify="center",
-            wraplength=420,
-        ).pack()
-
-        # Developer Info
-        dev_frame = tk.Frame(card, bg=COLOR_BG_CARD)
-        dev_frame.pack(fill="x", pady=(0, 10))
-
-        tk.Label(
-            dev_frame,
-            text="Developed by: Ziqva" if english else "Dikembangkan oleh: Ziqva",
-            font=("Segoe UI", 10, "bold"),
-            fg=COLOR_TEXT_WHITE,
-            bg=COLOR_BG_CARD,
-        ).pack(anchor="center")
-
-        # More Tools Website Button
-        btn_web = FlatButton(
-            card,
-            text="🌐 More tools at appcenter.ziqva.com" if english else "🌐 Tools lainnya di appcenter.ziqva.com",
-            font=("Segoe UI", 9, "bold"),
-            bg_color="#2563eb",
-            fg_color="#ffffff",
-            hover_bg="#1d4ed8",
-            border_color="#3b82f6",
-            height=34,
-            command=lambda: webbrowser.open_new_tab("https://appcenter.ziqva.com"),
-        )
-        btn_web.pack(fill="x", pady=(0, 8))
-
-        # Donate QRIS Button
-        btn_don = FlatButton(
-            card,
-            text="💖 Support the developer (QRIS)" if english else "💖 Dukung Pengembang (Donasi QRIS)",
-            font=("Segoe UI", 9, "bold"),
-            bg_color="#be123c",
-            fg_color="#ffe4e6",
-            hover_bg="#9f1239",
-            border_color="#f43f5e",
-            height=34,
-            command=lambda: [top.destroy(), self.show_donate_popup()],
-        )
-        btn_don.pack(fill="x", pady=(0, 10))
-
-        # Close Button
-        btn_close = FlatButton(
-            card,
-            text="Close" if english else "Tutup",
-            font=("Segoe UI", 8, "bold"),
-            bg_color="#172236",
-            fg_color=COLOR_TEXT_MUTED,
-            hover_bg="#253552",
-            border_color="#30415c",
-            width=80,
-            height=26,
-            command=top.destroy,
-        )
-        btn_close.pack(anchor="center")
-
-        # Dynamic Auto-Centering & Precise Height (prevents any clipping on high-DPI screens)
-        top.bind("<Escape>", lambda e: top.destroy())
+            top.iconbitmap(str(icon_path))
+        body = tk.Frame(top, bg=COLOR_BG_SURFACE, padx=28, pady=24)
+        body.pack(fill="both", expand=True)
+        header = tk.Frame(body, bg=COLOR_BG_SURFACE)
+        header.pack(fill="x", pady=(0, 20))
+        art = base_dir / 'CleanC.png'
+        if art.exists():
+            top._about_icon = ImageTk.PhotoImage(Image.open(art).convert('RGBA').resize((64, 64), Image.Resampling.LANCZOS))
+            tk.Label(header, image=top._about_icon, bg=COLOR_BG_SURFACE).pack(side='left', padx=(0, 14))
+        title = tk.Frame(header, bg=COLOR_BG_SURFACE)
+        title.pack(side='left')
+        tk.Label(title, text='CleanC', font=('Segoe UI', 25, 'bold'), fg=COLOR_TEXT_WHITE,
+                 bg=COLOR_BG_SURFACE).pack(anchor='w')
+        tk.Label(title, text='Version 2.5 PRO  /  Windows 64-bit' if english else 'Versi 2.5 PRO  /  Windows 64-bit',
+                 font=('Segoe UI', 9), fg=COLOR_CYAN_LIGHT, bg=COLOR_BG_SURFACE).pack(anchor='w')
+        tk.Label(body, text='Make room for what matters.' if english else 'Lebih banyak ruang untuk kebutuhan Anda.',
+                 font=('Segoe UI', 12, 'bold'), fg=COLOR_TEXT_WHITE, bg=COLOR_BG_SURFACE,
+                 anchor='w').pack(fill='x', pady=(0, 8))
+        tk.Label(body, text=('Explore storage, find large folders, and clean browser, app and developer caches. Review every target before deleting.'
+                 if english else 'Jelajahi penyimpanan, temukan folder besar, dan bersihkan cache browser, aplikasi serta developer. Periksa target sebelum menghapus.'),
+                 font=('Segoe UI', 10), fg=COLOR_TEXT_MUTED, bg=COLOR_BG_SURFACE,
+                 justify='left', wraplength=430).pack(anchor='w', pady=(0, 22))
+        tk.Frame(body, bg=COLOR_BORDER_SOFT, height=1).pack(fill='x', pady=(0, 16))
+        tk.Label(body, text='Built by Ziqva' if english else 'Dikembangkan oleh Ziqva',
+                 font=('Segoe UI', 10, 'bold'), fg=COLOR_TEXT_WHITE,
+                 bg=COLOR_BG_SURFACE).pack(anchor='w')
+        tk.Label(body, text='Tools for your everyday workflow' if english else 'Tools untuk pekerjaan sehari-hari',
+                 font=('Segoe UI', 9), fg=COLOR_TEXT_MUTED,
+                 bg=COLOR_BG_SURFACE).pack(anchor='w', pady=(3, 16))
+        FlatButton(body, text='Visit ziqva.com  ↗' if english else 'Kunjungi ziqva.com  ↗',
+                   bg_color='#183747', fg_color=COLOR_CYAN_LIGHT, hover_bg='#224b60',
+                   border_color='#2b5267', width=430, height=40,
+                   command=lambda: webbrowser.open_new_tab('https://ziqva.com')).pack(fill='x', pady=(0, 8))
+        FlatButton(body, text='Support via QRIS' if english else 'Dukung melalui QRIS',
+                   bg_color=COLOR_BG_CARD, fg_color=COLOR_TEXT_MUTED, hover_bg='#223047',
+                   border_color=COLOR_BORDER_SOFT, width=430, height=38,
+                   command=lambda: [top.destroy(), self.show_donate_popup()]).pack(fill='x')
+        FlatButton(body, text='Close' if english else 'Tutup', width=82, height=30,
+                   bg_color=COLOR_BG_SURFACE, fg_color=COLOR_TEXT_MUTED, hover_bg=COLOR_BG_CARD,
+                   command=top.destroy).pack(anchor='e', pady=(18, 0))
+        top.bind('<Escape>', lambda e: top.destroy())
         top.update_idletasks()
-        req_w = max(520, top.winfo_reqwidth())
-        req_h = top.winfo_reqheight() + 16
-        try:
-            x = self.winfo_x() + (self.winfo_width() - req_w) // 2
-            y = self.winfo_y() + (self.winfo_height() - req_h) // 2
-            top.geometry(f"{req_w}x{req_h}+{max(0, x)}+{max(0, y)}")
-        except Exception:
-            top.geometry("520x620")
-
+        width, height = top.winfo_reqwidth(), top.winfo_reqheight()
+        x = max(0, self.winfo_x() + (self.winfo_width() - width) // 2)
+        y = max(0, self.winfo_y() + (self.winfo_height() - height) // 2)
+        top.geometry(f'{width}x{height}+{x}+{y}')
+        if sys.platform == 'win32':
+            # Native dark caption keeps drag, close, keyboard and accessibility behavior.
+            hwnd = ctypes.windll.user32.GetParent(top.winfo_id())
+            dwm = ctypes.windll.dwmapi.DwmSetWindowAttribute
+            dwm.argtypes = [ctypes.c_void_p, ctypes.c_uint, ctypes.c_void_p, ctypes.c_uint]
+            dwm.restype = ctypes.c_long
+            for attribute, value in ((20, 1), (33, 2), (35, 0x00271811), (36, 0x00f8fafc)):
+                setting = ctypes.c_int(value)
+                dwm(hwnd, attribute, ctypes.byref(setting), ctypes.sizeof(setting))
         top.grab_set()
+        top.focus_set()
 
     def _update_license_button_display(self) -> None:
         """Update header license button color & text based on status."""
@@ -3767,7 +3745,7 @@ class CleanCApp(tk.Tk):
             hover_bg="#253552",
             border_color="#30415c",
             height=26,
-            command=lambda: webbrowser.open_new_tab("https://appcenter.ziqva.com"),
+            command=lambda: webbrowser.open_new_tab("https://ziqva.com"),
         )
         btn_buy.pack(side="left")
 
@@ -3816,7 +3794,7 @@ class CleanCApp(tk.Tk):
         top = tk.Toplevel(self)
         english = self.language == "en"
         top.title("QRIS Donation - ZIQVA" if english else "Donasi QRIS - ZIQVA")
-        top.configure(bg=COLOR_BG_ROOT)
+        top.configure(bg=COLOR_BG_SURFACE)
         top.resizable(False, False)
         top.transient(self)
 
@@ -3829,30 +3807,32 @@ class CleanCApp(tk.Tk):
                 pass
 
         # Top decorative pink/rose strip
-        tk.Frame(top, bg="#f43f5e", height=5).pack(fill="x")
+        tk.Frame(top, bg="#f43f5e", height=2).pack(fill="x")
 
-        header = tk.Frame(top, bg=COLOR_BG_ROOT, pady=12)
+        header = tk.Frame(top, bg=COLOR_BG_SURFACE, pady=12)
         header.pack(fill="x")
 
         tk.Label(
             header,
-            text="💖 Support the CleanC developer" if english else "💖 Dukung Pengembang CleanC",
-            font=("Segoe UI", 14, "bold"),
-            fg="#f43f5e",
-            bg=COLOR_BG_ROOT,
+            text="Support CleanC" if english else "Dukung CleanC",
+            font=("Segoe UI", 16, "bold"),
+            fg=COLOR_TEXT_WHITE,
+            bg=COLOR_BG_SURFACE,
         ).pack(anchor="center")
 
         tk.Label(
             header,
             text=("Scan QRIS with BCA, Mandiri, BRI, GoPay, OVO, DANA, or ShopeePay"
                   if english else "Scan QRIS melalui BCA, Mandiri, BRI, GoPay, OVO, DANA, atau ShopeePay"),
-            font=("Segoe UI", 8),
-            fg=COLOR_TEXT_DIM,
-            bg=COLOR_BG_ROOT,
+            font=("Segoe UI", 9),
+            wraplength=340,
+            justify="center",
+            fg=COLOR_TEXT_MUTED,
+            bg=COLOR_BG_SURFACE,
         ).pack(anchor="center", pady=(3, 0))
 
         # White Card Container for QR Code (optimal scanning contrast)
-        qr_card = tk.Frame(top, bg="#ffffff", padx=18, pady=16, relief="flat", highlightbackground="#f43f5e", highlightthickness=2)
+        qr_card = tk.Frame(top, bg="#ffffff", padx=18, pady=16, relief="flat", highlightbackground=COLOR_BORDER_SOFT, highlightthickness=1)
         qr_card.pack(padx=24, pady=(4, 18))
 
         # Load QRIS Image
@@ -3864,7 +3844,7 @@ class CleanCApp(tk.Tk):
             try:
                 pil_img = Image.open(qris_file)
                 # target width around 300px
-                target_w = 300
+                target_w = min(300, int(top.winfo_screenheight() * 0.40 / (pil_img.height / pil_img.width)))
                 target_h = int(pil_img.height * (target_w / pil_img.width))
                 resized = pil_img.resize((target_w, target_h), Image.Resampling.LANCZOS)
                 top._qris_photo = ImageTk.PhotoImage(resized)
@@ -3889,7 +3869,11 @@ class CleanCApp(tk.Tk):
                 pady=40,
             ).pack()
 
-        # Dynamic Auto-Centering & Compact Height without redundant footer
+        FlatButton(top, text="Close" if english else "Tutup", width=100, height=32,
+                   bg_color=COLOR_BG_CARD, fg_color=COLOR_TEXT_MUTED, hover_bg="#223047",
+                   command=top.destroy).pack(pady=(0, 16))
+
+        # Dynamic Auto-Centering & Compact Height
         top.bind("<Escape>", lambda e: top.destroy())
         top.update_idletasks()
         req_w = max(420, top.winfo_reqwidth())
@@ -3901,6 +3885,14 @@ class CleanCApp(tk.Tk):
         except Exception:
             top.geometry("420x520")
 
+        if sys.platform == 'win32':
+            top.update_idletasks()
+            hwnd = ctypes.windll.user32.GetParent(top.winfo_id())
+            dwm = ctypes.windll.dwmapi.DwmSetWindowAttribute
+            dwm.argtypes = [ctypes.c_void_p, ctypes.c_uint, ctypes.c_void_p, ctypes.c_uint]
+            for attribute, value in ((20, 1), (33, 2), (35, 0x00271811)):
+                setting = ctypes.c_int(value)
+                dwm(hwnd, attribute, ctypes.byref(setting), ctypes.sizeof(setting))
         top.grab_set()
 
     def close_capcut_process(self) -> None:

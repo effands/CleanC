@@ -48,8 +48,8 @@ python3 clean_chrome_service_workers.py --clean-windows thumbnail-cache
 
 ## AppData Explorer
 
-The **AppData Explorer** tab scans Users, Current User, Local, LocalLow, Roaming, or Disk C: without
-deleting files. It lists folders and files in descending size order, with recursive
+The **AppData Explorer** tab scans Users, Current User, Local, LocalLow, Roaming, or Disk C:.
+Scanning does not delete files. It lists folders and files in descending size order, with recursive
 file counts. Double-click a folder to explore its children, use Up to return, or
 open the location in Windows File Explorer. Scans run in the background and can
 be cancelled. Sizes are logical file sizes rather than allocated disk space;
@@ -59,6 +59,11 @@ access errors produce partial totals and junctions/symbolic links are excluded.
 Hidden and system folders are included automatically, including AppData and
 hidden folders inside user profiles. Choose Users to start at `C:\Users`, or
 Current User to start at the signed-in user's home folder.
+Folders with immediate subfolders show a **+** prefix. Select items and use
+**Delete Selected** to move them to the Windows Recycle Bin after confirmation.
+Deletion is unavailable during a scan, follows the existing license gate, blocks
+root/system directories and redirected paths, and reports failures. Moving files
+to Recycle Bin does not free disk space until the bin is emptied.
 Disk C: scans may take several minutes. Administrator permissions can improve
 coverage of protected folders.
 

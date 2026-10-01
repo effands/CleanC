@@ -19,7 +19,7 @@ def scan_directory(root, cancel, progress=None, on_row=None):
         if cancel.is_set():
             return None
         row = dict(path=Path(child.path), name=child.name, size=0, files=0, errors=0,
-                   is_dir=False, skipped=False)
+                   is_dir=False, skipped=False, has_subfolders=False)
         try:
             info = child.stat(follow_symlinks=False)
             row['is_dir'] = stat.S_ISDIR(info.st_mode)
@@ -50,6 +50,8 @@ def scan_directory(root, cancel, progress=None, on_row=None):
                                         row['skipped'] = True
                                         continue
                                     if stat.S_ISDIR(info.st_mode):
+                                        if folder == Path(child.path):
+                                            row['has_subfolders'] = True
                                         pending.append(Path(entry.path))
                                     elif stat.S_ISREG(info.st_mode):
                                         row['size'] += info.st_size
@@ -66,3 +68,45 @@ def scan_directory(root, cancel, progress=None, on_row=None):
         if progress:
             progress(index, len(children), child.name)
     return sorted(rows, key=lambda r: (-r['size'], r['name'].casefold()))
+
+
+def recycle_item(path, current_directory):
+    """Move a reviewed direct child to Windows Recycle Bin."""
+    import ctypes
+    from ctypes import wintypes
+    path, parent = Path(path), Path(current_directory)
+    if path.parent.resolve() != parent.resolve():
+        raise ValueError('Target is outside the displayed directory.')
+    protected = {Path.home().resolve(), Path.home().parent.resolve(),
+                 (Path.home() / 'AppData').resolve()}
+    for variable in ('WINDIR', 'ProgramFiles', 'ProgramFiles(x86)', 'ProgramData', 'LOCALAPPDATA', 'APPDATA'):
+        if os.environ.get(variable):
+            protected.add(Path(os.environ[variable]).resolve())
+    protected.add((Path.home() / 'AppData/LocalLow').resolve())
+    resolved = path.resolve()
+    if resolved == Path(resolved.anchor) or resolved in protected:
+        raise ValueError('This root/system directory cannot be deleted from Explorer.')
+    if any(redirected(p.lstat()) for p in (path, *path.parents)):
+        raise ValueError('Junctions and symbolic links cannot be deleted here.')
+    if path.is_dir():
+        def walk_error(exc):
+            raise exc
+        for folder, dirs, files in os.walk(path, followlinks=False, onerror=walk_error):
+            if any(redirected((Path(folder) / name).lstat()) for name in dirs + files):
+                raise ValueError('Folder contains a junction or symbolic link; deletion blocked.')
+    class SHFILEOPSTRUCT(ctypes.Structure):
+        _fields_ = [('hwnd', wintypes.HWND), ('wFunc', wintypes.UINT),
+                    ('pFrom', wintypes.LPCWSTR), ('pTo', wintypes.LPCWSTR),
+                    ('fFlags', wintypes.WORD), ('fAnyOperationsAborted', wintypes.BOOL),
+                    ('hNameMappings', ctypes.c_void_p), ('lpszProgressTitle', wintypes.LPCWSTR)]
+    source = ctypes.create_unicode_buffer(str(path.absolute()) + '\0\0')
+    operation = SHFILEOPSTRUCT()
+    operation.wFunc = 3  # FO_DELETE
+    operation.pFrom = ctypes.cast(source, wintypes.LPCWSTR)
+    operation.fFlags = 0x40 | 0x10 | 0x400  # ALLOWUNDO, NOCONFIRMATION, NOERRORUI
+    shell = ctypes.windll.shell32
+    shell.SHFileOperationW.argtypes = [ctypes.POINTER(SHFILEOPSTRUCT)]
+    shell.SHFileOperationW.restype = ctypes.c_int
+    code = shell.SHFileOperationW(ctypes.byref(operation))
+    if code or operation.fAnyOperationsAborted or path.exists():
+        raise OSError(f'Recycle Bin operation failed or cancelled ({code}): {path}')
