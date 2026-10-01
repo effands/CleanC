@@ -541,6 +541,63 @@ def get_capcut_cache_info(cache_dir: Path | None = None) -> dict:
     return info
 
 
+def get_capcut_user_data_info(user_data_dir: Path | None = None) -> dict:
+    """List every direct child of User Data for explicit full-data cleanup."""
+    target = user_data_dir or DEFAULT_CAPCUT_USER_DATA
+    import stat
+    def reparse(path):
+        return bool(getattr(path.lstat(), 'st_file_attributes', 0) & stat.FILE_ATTRIBUTE_REPARSE_POINT) or path.is_symlink()
+    if target.exists() and any(reparse(p) for p in (target, *target.parents)):
+        raise ValueError('User Data must not be a junction or symbolic link.')
+    info = dict(exists=target.is_dir(), path=target, items=[], total_size=0, total_files=0)
+    if not info['exists']:
+        return info
+    for entry in sorted(target.iterdir(), key=lambda p: p.name.casefold()):
+        size = count = 0
+        if reparse(entry):
+            continue
+        if entry.is_dir():
+            def onerror(exc):
+                raise exc
+            for folder, dirs, files in os.walk(entry, followlinks=False, onerror=onerror):
+                dirs[:] = [name for name in dirs if not reparse(Path(folder) / name)]
+                for name in files:
+                    child = Path(folder) / name
+                    if not reparse(child):
+                        size += child.stat().st_size
+                        count += 1
+        else:
+            size, count = entry.stat().st_size, 1
+        info['items'].append(dict(name=entry.name, path=entry, is_dir=entry.is_dir(),
+                                  type='Folder' if entry.is_dir() else 'File', category='User Data',
+                                  size=size, files=count))
+        info['total_size'] += size
+        info['total_files'] += count
+    return info
+
+
+def remove_capcut_user_data_item(path: Path, user_data_dir: Path | None = None) -> None:
+    """Delete one direct child while retaining the User Data root."""
+    root = user_data_dir or DEFAULT_CAPCUT_USER_DATA
+    if path.parent.resolve() != root.resolve() or path == root:
+        raise ValueError('Target must be a direct child of CapCut User Data.')
+    import stat
+    def reparse(p):
+        return p.is_symlink() or bool(getattr(p.lstat(), 'st_file_attributes', 0) & stat.FILE_ATTRIBUTE_REPARSE_POINT)
+    if any(reparse(p) for p in (root, *root.parents)):
+        raise ValueError('User Data path contains a junction or symbolic link.')
+    # Do not traverse redirected folders, including nested junctions.
+    if reparse(path):
+        raise ValueError(f'Redirected folder skipped: {path}')
+    if path.is_dir():
+        for folder, dirs, files in os.walk(path, followlinks=False):
+            for name in dirs + files:
+                child = Path(folder) / name
+                if reparse(child):
+                    raise ValueError(f'Redirected path skipped: {child}')
+    remove_target(path)
+
+
 def clean_capcut_cache(
     cache_dir: Path | None = None,
     targets: list[Path] | None = None,

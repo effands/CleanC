@@ -40,6 +40,8 @@ import threading
 import time
 import tkinter as tk
 import webbrowser
+import system_cleanup
+import storage_explorer
 from pathlib import Path
 from tkinter import filedialog, messagebox, ttk
 
@@ -50,6 +52,7 @@ from clean_chrome_service_workers import (
     DEFAULT_CAPCUT_APPS,
     DEFAULT_CAPCUT_CACHE,
     DEFAULT_CAPCUT_PROJECTS,
+    DEFAULT_CAPCUT_USER_DATA,
     DEFAULT_CHROME_USER_DATA,
     DEFAULT_EDGE_USER_DATA,
     DEFAULT_FIREFOX_USER_DATA,
@@ -70,6 +73,8 @@ from clean_chrome_service_workers import (
     format_size,
     get_capcut_cache_info,
     get_capcut_projects_info,
+    get_capcut_user_data_info,
+    remove_capcut_user_data_item,
     get_capcut_versions_info,
     get_dir_size,
     get_panther_info,
@@ -123,10 +128,12 @@ FILTER_CACHE = "Hanya Cache"
 SCOPE_CAPCUT_ALL = "Semua (Cache & Projects)"
 SCOPE_CAPCUT_CACHE = "Hanya Cache (User Data\\Cache)"
 SCOPE_CAPCUT_PROJECTS = "Hanya Projects (User Data\\Projects)"
+SCOPE_CAPCUT_USER_DATA = "Seluruh User Data (termasuk pengaturan)"
 
 # UI-wide language replacements.  The application is intentionally kept in
 # one file, so a recursive refresh keeps every existing screen in sync.
 UI_EN_REPLACEMENTS = [
+    (SCOPE_CAPCUT_USER_DATA, "Entire User Data (includes settings)"),
     ("Cache dari Playwright (binary browser lama), Node.js, NPM, PIP Python, dan PNPM dapat mengakumulasi puluhan Gigabyte di %LOCALAPPDATA%. CleanC secara cerdas menandai versi browser Playwright lama dan cache aman untuk dibersihkan, sembari tetap menjaga versi aktif tersimpan.", "Playwright (old browser binaries), Node.js, NPM, Python PIP, and PNPM caches can accumulate dozens of gigabytes in %LOCALAPPDATA%. CleanC identifies old Playwright browser versions and safe caches while protecting active versions."),
     ("Folder C:\\Windows\\Panther\\monitor secara berkala mengakumulasi files log diagnostic sistem dan telemetry yang dapat menyita ruang hard disk. CleanC dapat menghentikan service monitor secara aman, membersihkan seluruh log usang, dan menyalakan kembali driver sistem.", "C:\\Windows\\Panther\\monitor periodically accumulates diagnostic and telemetry logs that consume disk space. CleanC safely stops the monitor service, removes stale logs, and restarts the system driver."),
     ("Folder C:\\Windows\\Panther\\monitor secara berkala mengakumulasi file log diagnostic sistem dan telemetry yang dapat menyita ruang hard disk. CleanC dapat menghentikan service monitor secara aman, membersihkan seluruh log usang, dan menyalakan kembali driver sistem.", "C:\\Windows\\Panther\\monitor periodically accumulates system diagnostic logs and telemetry that consume disk space. CleanC safely stops the monitor service, removes stale logs, and restarts the system driver."),
@@ -782,10 +789,10 @@ class CleanCApp(tk.Tk):
         # Provide multi-resolution pre-sharpened mipmaps to Tkinter iconphoto
         # Prevents Tkinter/Windows from doing crude, blurry nearest-neighbor downscaling
         self._app_icon_photos = []
-        if png_path.exists():
+        if png_path.exists() and sys.platform != "win32":
             try:
                 base_img = Image.open(png_path).convert("RGBA")
-                for s in (16, 20, 24, 32, 40, 48, 64, 128, 256):
+                for s in (256, 128, 64, 48, 40, 32, 24, 20, 16):
                     sub = base_img.resize((s, s), Image.Resampling.LANCZOS)
                     if s <= 24:
                         sub = sub.filter(ImageFilter.UnsharpMask(radius=1.0, percent=140, threshold=2))
@@ -805,18 +812,33 @@ class CleanCApp(tk.Tk):
         if sys.platform == "win32" and icon_path.exists():
             try:
                 self.update_idletasks()
-                hwnd = ctypes.windll.user32.GetParent(self.winfo_id())
+                from ctypes import wintypes
+                user32 = ctypes.windll.user32
+                user32.GetParent.argtypes = [wintypes.HWND]
+                user32.GetParent.restype = wintypes.HWND
+                user32.LoadImageW.argtypes = [wintypes.HINSTANCE, wintypes.LPCWSTR, wintypes.UINT,
+                                            ctypes.c_int, ctypes.c_int, wintypes.UINT]
+                user32.LoadImageW.restype = wintypes.HANDLE
+                user32.SendMessageW.argtypes = [wintypes.HWND, wintypes.UINT, wintypes.WPARAM, wintypes.LPARAM]
+                user32.SendMessageW.restype = ctypes.c_ssize_t
+                hwnd = user32.GetParent(self.winfo_id())
                 if hwnd:
                     # 11: SM_CXICON, 12: SM_CYICON (Taskbar / Alt+Tab)
                     # 49: SM_CXSMICON, 50: SM_CYSMICON (Titlebar)
-                    cx_big = ctypes.windll.user32.GetSystemMetrics(11) or 32
-                    cy_big = ctypes.windll.user32.GetSystemMetrics(12) or 32
-                    cx_small = ctypes.windll.user32.GetSystemMetrics(49) or 16
-                    cy_small = ctypes.windll.user32.GetSystemMetrics(50) or 16
+                    user32.GetDpiForWindow.argtypes = [wintypes.HWND]
+                    user32.GetDpiForWindow.restype = wintypes.UINT
+                    user32.GetSystemMetricsForDpi.argtypes = [ctypes.c_int, wintypes.UINT]
+                    user32.GetSystemMetricsForDpi.restype = ctypes.c_int
+                    dpi = user32.GetDpiForWindow(hwnd) or 96
+                    cx_big = user32.GetSystemMetricsForDpi(11, dpi) or 32
+                    cy_big = user32.GetSystemMetricsForDpi(12, dpi) or 32
+                    cx_small = user32.GetSystemMetricsForDpi(49, dpi) or 16
+                    cy_small = user32.GetSystemMetricsForDpi(50, dpi) or 16
 
                     # LR_LOADFROMFILE = 0x0010, IMAGE_ICON = 1
                     h_big = ctypes.windll.user32.LoadImageW(None, str(icon_path), 1, cx_big, cy_big, 0x0010)
                     h_small = ctypes.windll.user32.LoadImageW(None, str(icon_path), 1, cx_small, cy_small, 0x0010)
+                    self._native_icon_handles = (h_big, h_small)
                     if h_big:
                         ctypes.windll.user32.SendMessageW(hwnd, 0x0080, 1, h_big)  # WM_SETICON, ICON_BIG
                     if h_small:
@@ -1579,6 +1601,279 @@ class CleanCApp(tk.Tk):
         self.notebook.add(dev_frame, text="  🛠️ Dev & Package Cache  ")
         self._build_dev_cache_tab(dev_frame)
 
+        system_frame = tk.Frame(self.notebook, bg=COLOR_BG_SURFACE, padx=14, pady=12)
+        self.notebook.add(system_frame, text="  🧹 System Cleanup  ")
+        self._build_system_cleanup_tab(system_frame)
+
+        explorer_frame = tk.Frame(self.notebook, bg=COLOR_BG_SURFACE, padx=14, pady=12)
+        self.notebook.add(explorer_frame, text="  📂 AppData Explorer  ")
+        self._build_storage_explorer(explorer_frame)
+
+    def _build_storage_explorer(self, parent):
+        self.explorer_roots = {
+            'Users': Path(os.environ.get('SystemDrive', 'C:') + '/Users'),
+            'Current User': Path.home(),
+            'Local': system_cleanup.LOCAL_APPDATA,
+            'LocalLow': Path.home() / 'AppData' / 'LocalLow',
+            'Roaming': system_cleanup.ROAMING_APPDATA,
+            'Disk C:': Path('C:/'),
+        }
+        self.explorer_cancel = threading.Event()
+        self.explorer_busy = False
+        self.explorer_rows = []
+        self.explorer_path = self.explorer_roots['Current User']
+        self.explorer_boundary = self.explorer_path
+        tk.Label(parent, text='AppData & Disk Explorer', font=('Segoe UI', 18, 'bold'),
+                 bg=COLOR_BG_SURFACE, fg=COLOR_TEXT_WHITE).pack(anchor='w')
+        tk.Label(parent, text='Read-only analysis • largest first • hidden folders included • double-click a folder to explore its contents',
+                 bg=COLOR_BG_SURFACE, fg=COLOR_TEXT_MUTED).pack(anchor='w', pady=8)
+        bar = tk.Frame(parent, bg=COLOR_BG_SURFACE)
+        bar.pack(fill='x')
+        self.explorer_scope = tk.StringVar(value='Current User')
+        combo = ttk.Combobox(bar, textvariable=self.explorer_scope,
+                             values=list(self.explorer_roots), state='readonly', width=16)
+        combo.pack(side='left')
+        combo.bind('<<ComboboxSelected>>', lambda e: self._explorer_start(self.explorer_roots[self.explorer_scope.get()], True))
+        ttk.Button(bar, text='Scan / Refresh', command=lambda: self._explorer_start(self.explorer_path)).pack(side='left', padx=8)
+        ttk.Button(bar, text='Up', command=self._explorer_up).pack(side='left')
+        ttk.Button(bar, text='Cancel', command=self.explorer_cancel.set).pack(side='left', padx=8)
+        ttk.Button(bar, text='Open in File Explorer', command=self._explorer_open).pack(side='left')
+        self.explorer_location = tk.StringVar(value=str(self.explorer_path))
+        tk.Label(parent, textvariable=self.explorer_location, bg=COLOR_BG_SURFACE,
+                 fg=COLOR_CYAN_LIGHT, anchor='w', wraplength=1000).pack(fill='x', pady=8)
+        area = tk.Frame(parent, bg=COLOR_BG_SURFACE)
+        area.pack(fill='both', expand=True)
+        self.explorer_tree = ttk.Treeview(area, columns=('name', 'type', 'size', 'files', 'status'), show='headings')
+        for key, title, width in [('name', 'Folder / File', 330), ('type', 'Type', 90), ('size', 'Size ↓', 110),
+                                  ('files', 'Files', 100), ('status', 'Scan status', 250)]:
+            self.explorer_tree.heading(key, text=title)
+            self.explorer_tree.column(key, width=width, anchor='e' if key in ('size', 'files') else 'w')
+        self.explorer_tree.pack(side='left', fill='both', expand=True)
+        scroll = ttk.Scrollbar(area, command=self.explorer_tree.yview)
+        scroll.pack(side='right', fill='y')
+        self.explorer_tree.configure(yscrollcommand=scroll.set)
+        self.explorer_tree.bind('<Double-1>', self._explorer_enter)
+        self.explorer_tree.bind('<Return>', self._explorer_enter)
+        self.explorer_status = tk.StringVar(value='Choose Users, Current User, Local, LocalLow, Roaming or Disk C:, then Scan. Hidden folders are included; access restrictions may produce partial totals.')
+        tk.Label(parent, textvariable=self.explorer_status, bg=COLOR_BG_SURFACE,
+                 fg=COLOR_TEXT_MUTED, wraplength=1100, justify='left').pack(anchor='w', pady=8)
+
+    def _explorer_start(self, path, reset=False):
+        if self.explorer_busy:
+            return
+        if reset:
+            self.explorer_boundary = Path(path)
+        self.explorer_path = Path(path)
+        self.explorer_location.set(str(path))
+        self.explorer_busy = True
+        self.explorer_cancel.clear()
+        self.explorer_rows = []
+        self.explorer_tree.delete(*self.explorer_tree.get_children())
+        self.explorer_status.set('Scanning… Disk C: may take several minutes. Cancel is available.')
+        def worker():
+            try:
+                rows = storage_explorer.scan_directory(path, self.explorer_cancel,
+                    lambda n, total, name: self.after(0, self.explorer_status.set, f'Scanning {n}/{total}: {name}'),
+                    on_row=lambda row: self.after(0, self._explorer_add_row, row))
+                self.after(0, self._explorer_done, rows, None)
+            except Exception as exc:
+                self.after(0, self._explorer_done, None, str(exc))
+        threading.Thread(target=worker, daemon=True).start()
+
+    def _explorer_add_row(self, row):
+        index = len(self.explorer_rows)
+        self.explorer_rows.append(row)
+        status = []
+        if row['errors']:
+            status.append(f"Partial: {row['errors']} access errors")
+        if row['skipped']:
+            status.append('Links / junctions excluded')
+        self.explorer_tree.insert('', 'end', iid=str(index), values=(row['name'],
+            'Folder' if row['is_dir'] else 'File', format_size(row['size']), f"{row['files']:,}", '; '.join(status) or 'Complete'))
+        ordered = sorted(range(len(self.explorer_rows)),
+                         key=lambda i: (-self.explorer_rows[i]['size'], self.explorer_rows[i]['name'].casefold()))
+        for position, iid in enumerate(ordered):
+            self.explorer_tree.move(str(iid), '', position)
+
+    def _explorer_done(self, rows, error):
+        self.explorer_busy = False
+        if error or rows is None:
+            self.explorer_status.set(('Scan failed: ' + error if error else 'Scan cancelled.') +
+                                    f' {len(self.explorer_rows)} completed items retained; results are incomplete.')
+            return
+        # Normally the table already contains streamed results. Also support
+        # completion callers without a streaming callback.
+        if not self.explorer_rows:
+            for row in rows:
+                self._explorer_add_row(row)
+        self.explorer_status.set(f"{len(rows)} items • {format_size(sum(r['size'] for r in rows))} scanned • "
+                                f"{sum(r['errors'] for r in rows)} access errors • sorted largest first. Double-click a folder for details.")
+
+    def _explorer_enter(self, event=None):
+        selection = self.explorer_tree.selection()
+        if selection and not self.explorer_busy:
+            row = self.explorer_rows[int(selection[0])]
+            if row['is_dir']:
+                self._explorer_start(row['path'])
+
+    def _explorer_up(self):
+        if self.explorer_path != self.explorer_boundary and not self.explorer_busy:
+            self._explorer_start(self.explorer_path.parent)
+
+    def _explorer_open(self):
+        selection = self.explorer_tree.selection()
+        path = self.explorer_path
+        if selection:
+            row = self.explorer_rows[int(selection[0])]
+            path = row['path'] if row['is_dir'] else row['path'].parent
+        if path.is_dir():
+            os.startfile(str(path))
+
+    def _build_system_cleanup_tab(self, parent):
+        self.system_busy = False
+        self.system_results = {}
+        self.system_selected = set()
+        tk.Label(parent, text="System Cleanup", font=("Segoe UI", 18, "bold"),
+                 bg=COLOR_BG_SURFACE, fg=COLOR_TEXT_WHITE).pack(anchor="w")
+        tk.Label(parent, text="Scan → select categories → clean. Temporary files newer than 24 hours are skipped.\n"
+                 "Close Chrome / Remote Desktop first. Locked files are skipped; system locations may require Administrator.",
+                 justify="left", bg=COLOR_BG_SURFACE, fg=COLOR_TEXT_MUTED).pack(anchor="w", pady=8)
+        bar = tk.Frame(parent, bg=COLOR_BG_SURFACE)
+        bar.pack(fill="x")
+        self.system_scan_button = ttk.Button(bar, text="Scan", command=self._start_system_scan)
+        self.system_scan_button.pack(side="left")
+        self.system_clean_button = ttk.Button(bar, text="Clean Selected", command=self._start_system_clean)
+        self.system_clean_button.pack(side="left", padx=8)
+        ttk.Button(bar, text="Chrome browsing data guide",
+                   command=lambda: webbrowser.open("https://support.google.com/chrome/answer/2392709?co=GENIE.Platform%3DDesktop")).pack(side="left")
+        ttk.Button(bar, text="Telegram cache guide",
+                   command=lambda: webbrowser.open("https://telegram.org/blog/cache-and-stickers")).pack(side="left", padx=8)
+        self.system_status = tk.StringVar(value="Ready to scan. No files are deleted during analysis.")
+        tk.Label(parent, textvariable=self.system_status, bg=COLOR_BG_SURFACE,
+                 fg=COLOR_TEXT_MUTED, wraplength=1000, justify="left").pack(anchor="w", pady=8)
+        area = tk.Frame(parent, bg=COLOR_BG_SURFACE)
+        area.pack(fill="both", expand=True)
+        self.system_tree = ttk.Treeview(area, columns=("count", "size", "status"), selectmode="browse")
+        self.system_tree.heading("#0", text="Category (click to select)")
+        for key, label in (("count", "Files"), ("size", "Size"), ("status", "Status / location")):
+            self.system_tree.heading(key, text=label)
+        self.system_tree.column("#0", width=260)
+        self.system_tree.column("count", width=70, stretch=False)
+        self.system_tree.column("size", width=95, stretch=False)
+        self.system_tree.column("status", width=430)
+        self.system_tree.pack(side="left", fill="both", expand=True)
+        scroll = ttk.Scrollbar(area, orient="vertical", command=self.system_tree.yview)
+        scroll.pack(side="right", fill="y")
+        self.system_tree.configure(yscrollcommand=scroll.set)
+        self.system_tree.bind("<ButtonRelease-1>", self._toggle_system_category)
+        self.system_tree.bind("<space>", self._toggle_system_category)
+        ttk.Button(parent, text="Details of selected row", command=self._system_details).pack(anchor="w", pady=8)
+
+    def _system_details(self):
+        rows = self.system_tree.selection()
+        if rows and rows[0] in self.system_results:
+            item = self.system_results[rows[0]]
+            messagebox.showinfo(item['name'], "Locations:\n" + "\n".join(map(str, item['roots'])) +
+                                "\n\nFiles (first 30):\n" + "\n".join(map(str, item['files'][:30])) +
+                                "\n\nScan / cleanup errors (first 10):\n" + "\n".join(item['errors'][:10]))
+
+    def _toggle_system_category(self, event):
+        if self.system_busy:
+            return
+        row = self.system_tree.identify_row(event.y) if event.type == tk.EventType.ButtonRelease else self.system_tree.focus()
+        if row in self.system_results:
+            if row in self.system_selected:
+                self.system_selected.remove(row)
+            else:
+                self.system_selected.add(row)
+            item = self.system_results[row]
+            self.system_tree.item(row, text=("☑ " if row in self.system_selected else "☐ ") + item['name'])
+
+    def _set_system_busy(self, busy):
+        self.system_busy = busy
+        for button in (self.system_scan_button, self.system_clean_button):
+            button.configure(state="disabled" if busy else "normal")
+
+    def _start_system_scan(self):
+        if self.system_busy:
+            return
+        self._set_system_busy(True)
+        self.system_status.set("Scanning files…")
+        def worker():
+            try:
+                result = system_cleanup.scan()
+                self.after(0, self._system_scan_done, result)
+            except Exception as exc:
+                self.after(0, self._system_failed, str(exc))
+        threading.Thread(target=worker, daemon=True).start()
+
+    def _system_failed(self, error):
+        self._set_system_busy(False)
+        self.system_status.set("Failed: " + error)
+
+    def _system_scan_done(self, result):
+        self.system_results = result
+        self.system_selected = {key for key, item in result.items() if item['recommended'] and item['files']}
+        self.system_tree.delete(*self.system_tree.get_children())
+        for key, item in result.items():
+            group = item['group']
+            if not self.system_tree.exists(group):
+                self.system_tree.insert("", "end", iid=group, text=group, open=True)
+            status = f"{len(item['errors'])} scan errors" if item['errors'] else ("Detected" if item['files'] or item.get('directories') else "No eligible files")
+            self.system_tree.insert(group, "end", iid=key,
+                                    text=("☑ " if key in self.system_selected else "☐ ") + item['name'],
+                                    values=(len(item['files']), format_size(item['total_size']), status + " — " + "; ".join(map(str, item['roots']))))
+        self._set_system_busy(False)
+        self.system_status.set(f"Analysis complete: {sum(len(i['files']) for i in result.values())} files, "
+                               f"{format_size(sum(i['total_size'] for i in result.values()))}. Memory dumps / diagnostic logs require explicit selection.")
+
+    def _start_system_clean(self):
+        if self.system_busy or not self.system_selected:
+            return
+        selected = [(k, self.system_results[k]) for k in self.system_results if k in self.system_selected]
+        if any(k in ('chrome', 'metrics') for k, _ in selected) and is_browser_running('chrome'):
+            messagebox.showwarning("Chrome is running", "Close Chrome before cleaning its cache.")
+            return
+        if any(k == 'ixbrowser' for k, _ in selected):
+            try:
+                if system_cleanup.ixbrowser_running():
+                    messagebox.showwarning('ixBrowser masih berjalan', 'Tutup ixBrowser sebelum membersihkan Browser Data.')
+                    return
+            except Exception as exc:
+                messagebox.showwarning('ixBrowser process check failed', str(exc))
+                return
+        if not messagebox.askyesno("Confirm Cleanup", "Delete files in these categories?\n\n" +
+                                  "\n".join(i['name'] for _, i in selected) +
+                                  ("\n\nixBrowser: seluruh isi folder selain extension akan dihapus permanen, termasuk data profil dan sesi.\n"
+                                   + str(system_cleanup.IX_BROWSER_DATA) + "\nFolder extension dilindungi, termasuk dalam subfolder."
+                                   if any(k == 'ixbrowser' for k, _ in selected) else "") +
+                                  "\n\nMemory dumps and logs, if selected, lose diagnostic information."):
+            return
+        self._set_system_busy(True)
+        self.system_status.set("Cleaning…")
+        def worker():
+            count = freed = 0
+            errors = []
+            try:
+                for key, item in selected:
+                    n, size, failed = system_cleanup.clean(key, item)
+                    count += n
+                    freed += size
+                    errors.extend(failed)
+                self.after(0, self._system_clean_done, count, freed, errors)
+            except Exception as exc:
+                self.after(0, self._system_failed, str(exc))
+        threading.Thread(target=worker, daemon=True).start()
+
+    def _system_clean_done(self, count, freed, errors):
+        self._set_system_busy(False)
+        self.record_cleaned_space(freed)
+        for key in self.system_selected:
+            self.system_tree.set(key, 'status', 'Cleanup attempted — rescan for remaining files')
+        self.system_status.set(f"{count} files deleted; {format_size(freed)} freed; {len(errors)} errors. Rescan to refresh.")
+        show = messagebox.showwarning if errors else messagebox.showinfo
+        show("Cleanup result", self.system_status.get() + "\n\n" + "\n".join(errors[:10]))
+
 
 
     # ------------------------------------------------------------------
@@ -2327,13 +2622,17 @@ class CleanCApp(tk.Tk):
         self.capcut_scope_combo = ttk.Combobox(
             r1,
             textvariable=self.capcut_scope_var,
-            values=[SCOPE_CAPCUT_ALL, SCOPE_CAPCUT_CACHE, SCOPE_CAPCUT_PROJECTS],
+            values=[SCOPE_CAPCUT_ALL, SCOPE_CAPCUT_CACHE, SCOPE_CAPCUT_PROJECTS, SCOPE_CAPCUT_USER_DATA],
             state="readonly",
             width=32,
             takefocus=False,
         )
         self.capcut_scope_combo.pack(side="left", padx=(0, 10))
         self.capcut_scope_combo.bind("<<ComboboxSelected>>", lambda e: self.start_capcut_scan())
+
+        tk.Label(ctrl_box, text=f"Entire User Data: {DEFAULT_CAPCUT_USER_DATA}\n"
+                 "Deleting these items can remove drafts, settings, presets, downloaded resources and sign-in data.",
+                 bg=COLOR_BG_CARD, fg=COLOR_AMBER, justify="left", wraplength=950).pack(anchor="w", pady=(4, 6))
 
         self.btn_capcut_scan = ttk.Button(
             r1, text="🔍 Scan Sekarang", style="Primary.TButton", command=self.start_capcut_scan
@@ -2941,8 +3240,8 @@ class CleanCApp(tk.Tk):
             ))
         if hasattr(self, "capcut_scope_combo"):
             self.capcut_scope_combo.configure(values=(
-                ["All (Cache & Projects)", "Cache Only (User Data\\Cache)", "Projects Only (User Data\\Projects)"]
-                if english else [SCOPE_CAPCUT_ALL, SCOPE_CAPCUT_CACHE, SCOPE_CAPCUT_PROJECTS]
+                ["All (Cache & Projects)", "Cache Only (User Data\\Cache)", "Projects Only (User Data\\Projects)", "Entire User Data (includes settings)"]
+                if english else [SCOPE_CAPCUT_ALL, SCOPE_CAPCUT_CACHE, SCOPE_CAPCUT_PROJECTS, SCOPE_CAPCUT_USER_DATA]
             ))
             self.capcut_scope_var.set(
                 "All (Cache & Projects)" if english else SCOPE_CAPCUT_ALL
@@ -3665,6 +3964,9 @@ class CleanCApp(tk.Tk):
     def _capcut_scan_worker(self, scope: str, cache_dir: Path, projects_dir: Path) -> None:
         try:
             combined_items: list[CapCutItem] = []
+            if scope in (SCOPE_CAPCUT_USER_DATA, "Entire User Data (includes settings)"):
+                info = get_capcut_user_data_info()
+                combined_items.extend(CapCutItem(it) for it in info['items'])
             if scope in (SCOPE_CAPCUT_ALL, "All (Cache & Projects)", SCOPE_CAPCUT_CACHE, "Cache Only (User Data\\Cache)"):
                 c_info = get_capcut_cache_info(cache_dir)
                 for it in c_info.get("items", []):
@@ -3706,7 +4008,7 @@ class CleanCApp(tk.Tk):
         for item in self.capcut_all_items:
             if item.category == "Cache":
                 cache_bytes += item.size
-            else:
+            elif item.category == "Projects":
                 projects_bytes += item.size
 
             if type_filter in ("Hanya Folder / Draft", "Folders / Drafts Only") and not item.is_dir:
@@ -3749,9 +4051,11 @@ class CleanCApp(tk.Tk):
             )
 
         # Update metric cards
+        full_data = self.capcut_scope_var.get() in (SCOPE_CAPCUT_USER_DATA, 'Entire User Data (includes settings)')
+        self.card_capcut_cache.update_title('Entire User Data' if full_data else ('CapCut Cache' if self.language == 'en' else 'Cache CapCut'))
         self.card_capcut_cache.update_data(
-            format_size(cache_bytes),
-            "Temporary CapCut files" if self.language == "en" else "File sementara CapCut",
+            format_size(sum(i.size for i in self.capcut_all_items) if full_data else cache_bytes),
+            str(DEFAULT_CAPCUT_USER_DATA) if full_data else ("Temporary CapCut files" if self.language == "en" else "File sementara CapCut"),
         )
         self.card_capcut_projects.update_data(format_size(projects_bytes), "Draft video editing")
 
@@ -3852,6 +4156,10 @@ class CleanCApp(tk.Tk):
                 self.check_capcut_process()
 
         warn_msg = ""
+        if any(t.category == 'User Data' for t in targets):
+            warn_msg = (f"SELURUH USER DATA: {DEFAULT_CAPCUT_USER_DATA}\n"
+                        "Item terpilih dapat berisi draft, pengaturan, preset, resource unduhan dan data login.\n"
+                        "Data tersebut akan dihapus permanen.\n\n")
         if has_projects:
             warn_msg = (
                 "⚠️ PERHATIAN KHUSUS:\n"
@@ -3888,6 +4196,10 @@ class CleanCApp(tk.Tk):
                 self.check_capcut_process()
 
         warn_msg = ""
+        if any(t.category == 'User Data' for t in self.capcut_displayed_items):
+            warn_msg = (f"SELURUH USER DATA: {DEFAULT_CAPCUT_USER_DATA}\n"
+                        "Item yang tampil dapat berisi draft, pengaturan, preset, resource unduhan dan data login.\n"
+                        "Semua item yang tampil akan dihapus permanen. Filter aktif tetap berlaku.\n\n")
         if has_projects:
             warn_msg = (
                 "⚠️ PERINGATAN KERAS (DRAFT PROYEK):\n"
@@ -3906,6 +4218,9 @@ class CleanCApp(tk.Tk):
             self._start_capcut_deletion(list(self.capcut_displayed_items))
 
     def _start_capcut_deletion(self, targets: list[CapCutItem]) -> None:
+        if any(t.category == 'User Data' for t in targets) and is_capcut_running():
+            messagebox.showwarning("CapCut masih berjalan", "Tutup CapCut sepenuhnya sebelum menghapus User Data.")
+            return
         self.is_capcut_deleting = True
         self.btn_capcut_scan.configure(state="disabled")
         self.btn_capcut_delete_selected.configure(state="disabled")
@@ -3928,13 +4243,16 @@ class CleanCApp(tk.Tk):
             path = item.path
             sz = item.size
             try:
-                remove_target(path)
+                if item.category == 'User Data':
+                    remove_capcut_user_data_item(path)
+                else:
+                    remove_target(path)
                 if not path.exists():
                     removed += 1
                     freed += sz
                 else:
                     failed.append(str(path))
-            except (OSError, PermissionError):
+            except (OSError, PermissionError, ValueError):
                 failed.append(str(path))
 
             self.after(0, self._capcut_delete_progress, index, total, item)
